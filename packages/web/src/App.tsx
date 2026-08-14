@@ -1,10 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import type { Customer } from "server/router";
 import { useTRPC } from "./trpc";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-const emptyForm = {
+type CustomerFormValues = {
+  contactName: string;
+  company: string;
+  address: string;
+  email: string;
+  customerSince: string;
+};
+
+const emptyForm: CustomerFormValues = {
   contactName: "",
   company: "",
   address: "",
@@ -34,11 +43,139 @@ function formatDate(isoDate: string): string {
   });
 }
 
+function CustomerFields({
+  form,
+  onChange,
+}: {
+  form: CustomerFormValues;
+  onChange: (field: keyof CustomerFormValues, value: string) => void;
+}) {
+  const set =
+    (field: keyof CustomerFormValues) =>
+    (e: { target: { value: string } }) =>
+      onChange(field, e.target.value);
+
+  return (
+    <div className="grid">
+      <label>
+        Contact person
+        <input
+          value={form.contactName}
+          onChange={set("contactName")}
+          placeholder="Jane Doe"
+          required
+        />
+      </label>
+      <label>
+        Company
+        <input
+          value={form.company}
+          onChange={set("company")}
+          placeholder="Acme Trading GmbH"
+          required
+        />
+      </label>
+      <label>
+        E-mail address
+        <input
+          type="email"
+          value={form.email}
+          onChange={set("email")}
+          placeholder="jane.doe@acme.example"
+          required
+        />
+      </label>
+      <label>
+        Customer since
+        <input
+          type="date"
+          value={form.customerSince}
+          onChange={set("customerSince")}
+          required
+        />
+      </label>
+      <label className="full">
+        Address
+        <textarea
+          value={form.address}
+          onChange={set("address")}
+          placeholder={"Musterstrasse 1\n10115 Berlin"}
+          rows={2}
+          required
+        />
+      </label>
+    </div>
+  );
+}
+
+function EditCustomerDialog({
+  customer,
+  onClose,
+}: {
+  customer: Customer;
+  onClose: () => void;
+}) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<CustomerFormValues>({
+    contactName: customer.contactName,
+    company: customer.company,
+    address: customer.address,
+    email: customer.email,
+    customerSince: customer.customerSince,
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  const updateCustomer = useMutation(
+    trpc.customer.update.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries(trpc.customer.list.queryFilter());
+        onClose();
+      },
+      onError: (err) => setError(readableError(err.message)),
+    }),
+  );
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    updateCustomer.mutate({ id: customer.id, ...form });
+  };
+
+  return (
+    <div
+      className="overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="modal card" role="dialog" aria-modal="true" aria-label="Edit customer">
+        <h2>Edit customer</h2>
+        <form onSubmit={handleSubmit}>
+          <CustomerFields
+            form={form}
+            onChange={(field, value) => setForm((f) => ({ ...f, [field]: value }))}
+          />
+          {error && <p className="error">{error}</p>}
+          <div className="actions">
+            <button type="submit" disabled={updateCustomer.isPending}>
+              {updateCustomer.isPending ? "Saving…" : "Save changes"}
+            </button>
+            <button type="button" className="secondary" onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Customer | null>(null);
 
   const customersQuery = useQuery(trpc.customer.list.queryOptions());
 
@@ -52,11 +189,6 @@ export default function App() {
       onError: (err) => setError(readableError(err.message)),
     }),
   );
-
-  const set =
-    (field: keyof typeof emptyForm) =>
-    (e: { target: { value: string } }) =>
-      setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -72,55 +204,10 @@ export default function App() {
       <section className="card">
         <h2>Add a customer</h2>
         <form onSubmit={handleSubmit}>
-          <div className="grid">
-            <label>
-              Contact person
-              <input
-                value={form.contactName}
-                onChange={set("contactName")}
-                placeholder="Jane Doe"
-                required
-              />
-            </label>
-            <label>
-              Company
-              <input
-                value={form.company}
-                onChange={set("company")}
-                placeholder="Acme Trading GmbH"
-                required
-              />
-            </label>
-            <label>
-              E-mail address
-              <input
-                type="email"
-                value={form.email}
-                onChange={set("email")}
-                placeholder="jane.doe@acme.example"
-                required
-              />
-            </label>
-            <label>
-              Customer since
-              <input
-                type="date"
-                value={form.customerSince}
-                onChange={set("customerSince")}
-                required
-              />
-            </label>
-            <label className="full">
-              Address
-              <textarea
-                value={form.address}
-                onChange={set("address")}
-                placeholder={"Musterstrasse 1\n10115 Berlin"}
-                rows={2}
-                required
-              />
-            </label>
-          </div>
+          <CustomerFields
+            form={form}
+            onChange={(field, value) => setForm((f) => ({ ...f, [field]: value }))}
+          />
           {error && <p className="error">{error}</p>}
           <button type="submit" disabled={createCustomer.isPending}>
             {createCustomer.isPending ? "Adding…" : "Add customer"}
@@ -150,18 +237,35 @@ export default function App() {
                   <th>Address</th>
                   <th>E-mail</th>
                   <th>Customer since</th>
+                  <th>
+                    <span className="visually-hidden">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {customers.map((c) => (
-                  <tr key={c.id}>
+                  <tr key={c.id} className="clickable" onClick={() => setEditing(c)}>
                     <td>{c.contactName}</td>
                     <td>{c.company}</td>
                     <td className="address">{c.address}</td>
                     <td>
-                      <a href={`mailto:${c.email}`}>{c.email}</a>
+                      <a href={`mailto:${c.email}`} onClick={(e) => e.stopPropagation()}>
+                        {c.email}
+                      </a>
                     </td>
                     <td>{formatDate(c.customerSince)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditing(c);
+                        }}
+                      >
+                        Edit
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -169,6 +273,14 @@ export default function App() {
           </div>
         )}
       </section>
+
+      {editing && (
+        <EditCustomerDialog
+          key={editing.id}
+          customer={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </main>
   );
 }

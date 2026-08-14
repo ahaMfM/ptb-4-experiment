@@ -1,8 +1,10 @@
-import { initTRPC } from "@trpc/server";
-import { desc } from "drizzle-orm";
+import { initTRPC, TRPCError } from "@trpc/server";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "./db/index.js";
 import { customers } from "./db/schema.js";
+
+export type { Customer } from "./db/schema.js";
 
 const t = initTRPC.create();
 
@@ -26,6 +28,23 @@ export const appRouter = t.router({
       const [created] = await db.insert(customers).values(input).returning();
       return created;
     }),
+    update: t.procedure
+      .input(customerInput.extend({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        const { id, ...values } = input;
+        const [updated] = await db
+          .update(customers)
+          .set(values)
+          .where(eq(customers.id, id))
+          .returning();
+        if (!updated) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Customer not found",
+          });
+        }
+        return updated;
+      }),
   }),
 });
 
