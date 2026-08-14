@@ -27,5 +27,13 @@ export async function initDb(): Promise<void> {
       "email" text NOT NULL,
       "customer_since" date NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS "products" (
+      "id" serial PRIMARY KEY,
+      "name" text NOT NULL,
+      "description" text NOT NULL,
+      "image" text NOT NULL,
+      "price" numeric(10,2) NOT NULL,
+      "stock" integer NOT NULL
+    );
   `);
 }
