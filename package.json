@@ -1,0 +1,11 @@
+{
+  "name": "trading-backoffice",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter server --filter web dev",
+    "build": "pnpm --filter server build && pnpm --filter web build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "packageManager": "pnpm@11.9.0"
+}
