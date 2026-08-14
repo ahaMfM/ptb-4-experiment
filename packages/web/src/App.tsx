@@ -108,6 +108,67 @@ function CustomerFields({
   );
 }
 
+function DeleteCustomerDialog({
+  customer,
+  onClose,
+}: {
+  customer: Customer;
+  onClose: () => void;
+}) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+
+  const removeCustomer = useMutation(
+    trpc.customer.remove.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries(trpc.customer.list.queryFilter());
+        onClose();
+      },
+      onError: (err) => setError(readableError(err.message)),
+    }),
+  );
+
+  return (
+    <div
+      className="overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="modal card"
+        role="alertdialog"
+        aria-modal="true"
+        aria-label="Delete customer"
+      >
+        <h2>Delete customer?</h2>
+        <p>
+          This will permanently remove{" "}
+          <strong>
+            {customer.contactName} ({customer.company})
+          </strong>{" "}
+          from the customer list. This cannot be undone.
+        </p>
+        {error && <p className="error">{error}</p>}
+        <div className="actions">
+          <button
+            type="button"
+            className="danger"
+            onClick={() => removeCustomer.mutate({ id: customer.id })}
+            disabled={removeCustomer.isPending}
+          >
+            {removeCustomer.isPending ? "Deleting…" : "Delete customer"}
+          </button>
+          <button type="button" className="secondary" onClick={onClose} autoFocus>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EditCustomerDialog({
   customer,
   onClose,
@@ -176,8 +237,16 @@ export default function App() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Customer | null>(null);
+  const [deleting, setDeleting] = useState<Customer | null>(null);
+  const [search, setSearch] = useState("");
 
-  const customersQuery = useQuery(trpc.customer.list.queryOptions());
+  const trimmedSearch = search.trim();
+  const customersQuery = useQuery({
+    ...trpc.customer.list.queryOptions(
+      trimmedSearch ? { search: trimmedSearch } : undefined,
+    ),
+    placeholderData: (previous) => previous,
+  });
 
   const createCustomer = useMutation(
     trpc.customer.create.mutationOptions({
@@ -216,16 +285,30 @@ export default function App() {
       </section>
 
       <section className="card">
-        <h2>
-          All customers
-          {customersQuery.isSuccess && <span className="count"> ({customers.length})</span>}
-        </h2>
+        <div className="list-header">
+          <h2>
+            All customers
+            {customersQuery.isSuccess && <span className="count"> ({customers.length})</span>}
+          </h2>
+          <input
+            type="search"
+            className="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or company…"
+            aria-label="Search customers by name"
+          />
+        </div>
         {customersQuery.isLoading && <p className="muted">Loading…</p>}
         {customersQuery.isError && (
           <p className="error">Could not load customers: {customersQuery.error.message}</p>
         )}
         {customersQuery.isSuccess && customers.length === 0 && (
-          <p className="muted">No customers yet. Add your first one above.</p>
+          <p className="muted">
+            {trimmedSearch
+              ? `No customers match “${trimmedSearch}”.`
+              : "No customers yet. Add your first one above."}
+          </p>
         )}
         {customers.length > 0 && (
           <div className="table-wrap">
@@ -255,16 +338,28 @@ export default function App() {
                     </td>
                     <td>{formatDate(c.customerSince)}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditing(c);
-                        }}
-                      >
-                        Edit
-                      </button>
+                      <span className="row-actions">
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing(c);
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="link-button danger-link"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleting(c);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -279,6 +374,14 @@ export default function App() {
           key={editing.id}
           customer={editing}
           onClose={() => setEditing(null)}
+        />
+      )}
+
+      {deleting && (
+        <DeleteCustomerDialog
+          key={deleting.id}
+          customer={deleting}
+          onClose={() => setDeleting(null)}
         />
       )}
     </main>

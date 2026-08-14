@@ -1,5 +1,5 @@
 import { initTRPC, TRPCError } from "@trpc/server";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, ilike, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "./db/index.js";
 import { customers } from "./db/schema.js";
@@ -18,12 +18,27 @@ const customerInput = z.object({
 
 export const appRouter = t.router({
   customer: t.router({
-    list: t.procedure.query(() =>
-      db
-        .select()
-        .from(customers)
-        .orderBy(desc(customers.customerSince), desc(customers.id)),
-    ),
+    list: t.procedure
+      .input(z.object({ search: z.string().trim().optional() }).optional())
+      .query(({ input }) => {
+        const term = input?.search;
+        // Escape LIKE wildcards so a search for "100%" matches literally.
+        const pattern = term
+          ? `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
+          : null;
+        return db
+          .select()
+          .from(customers)
+          .where(
+            pattern
+              ? or(
+                  ilike(customers.contactName, pattern),
+                  ilike(customers.company, pattern),
+                )
+              : undefined,
+          )
+          .orderBy(desc(customers.customerSince), desc(customers.id));
+      }),
     create: t.procedure.input(customerInput).mutation(async ({ input }) => {
       const [created] = await db.insert(customers).values(input).returning();
       return created;
@@ -44,6 +59,21 @@ export const appRouter = t.router({
           });
         }
         return updated;
+      }),
+    remove: t.procedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        const [deleted] = await db
+          .delete(customers)
+          .where(eq(customers.id, input.id))
+          .returning();
+        if (!deleted) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Customer not found",
+          });
+        }
+        return deleted;
       }),
   }),
 });

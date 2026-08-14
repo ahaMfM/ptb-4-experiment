@@ -13,6 +13,7 @@
   --accent: #1f6feb;
   --accent-hover: #1a5fd0;
   --error: #b3261e;
+  --danger-hover: #921e17;
 }
 
 body {
@@ -215,6 +216,53 @@ button.secondary {
 
 button.secondary:hover:not(:disabled) {
   background: var(--bg);
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.list-header h2 {
+  margin-bottom: 0;
+}
+
+.search {
+  min-width: 16rem;
+  flex: 0 1 20rem;
+}
+
+@media (max-width: 640px) {
+  .search {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.75rem;
+  white-space: nowrap;
+}
+
+.link-button.danger-link {
+  color: var(--error);
+}
+
+.link-button.danger-link:hover:not(:disabled) {
+  color: var(--danger-hover);
+}
+
+button.danger {
+  background: var(--error);
+}
+
+button.danger:hover:not(:disabled) {
+  background: var(--danger-hover);
 }
 
 .visually-hidden {
