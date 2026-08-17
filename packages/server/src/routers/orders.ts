@@ -61,47 +61,76 @@ async function transitionFromOpen(
   throw new TRPCError({ code: "CONFLICT", message: explainConflict(status) });
 }
 
+export const orderListInput = z.object({
+  page: z.number().int().positive().default(1),
+  pageSize: z.number().int().positive().max(100).default(20),
+});
+
 export const orderRouter = router({
-  list: protectedProcedure.query(async () => {
-    const orderRows = await db
-      .select({
-        id: orders.id,
-        createdAt: orders.createdAt,
-        status: orders.status,
-        customerId: orders.customerId,
-        contactName: customers.contactName,
-        company: customers.company,
-        // Who recorded the order; null for old entries.
-        recordedBy: users.name,
-      })
-      .from(orders)
-      .innerJoin(customers, eq(customers.id, orders.customerId))
-      .leftJoin(users, eq(users.id, orders.createdById))
-      .orderBy(desc(orders.createdAt), desc(orders.id));
+  list: protectedProcedure
+    .input(orderListInput)
+    .query(async ({ input }) => {
+      const { page, pageSize } = input;
 
-    const itemRows = await db
-      .select({
-        orderId: orderItems.orderId,
-        productId: orderItems.productId,
-        quantity: orderItems.quantity,
-        unitPrice: orderItems.unitPrice,
-        productName: products.name,
-      })
-      .from(orderItems)
-      .innerJoin(products, eq(products.id, orderItems.productId))
-      .orderBy(orderItems.id);
+      const [{ total }] = await db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(orders);
 
-    return orderRows.map((order) => ({
-      id: order.id,
-      createdAt: order.createdAt.toISOString(),
-      status: order.status,
-      customerId: order.customerId,
-      contactName: order.contactName,
-      company: order.company,
-      recordedBy: order.recordedBy,
-      ...orderLines(itemRows, order.id),
-    }));
-  }),
+      const orderRows = await db
+        .select({
+          id: orders.id,
+          createdAt: orders.createdAt,
+          status: orders.status,
+          customerId: orders.customerId,
+          contactName: customers.contactName,
+          company: customers.company,
+          // Who recorded the order; null for old entries.
+          recordedBy: users.name,
+        })
+        .from(orders)
+        .innerJoin(customers, eq(customers.id, orders.customerId))
+        .leftJoin(users, eq(users.id, orders.createdById))
+        .orderBy(desc(orders.createdAt), desc(orders.id))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize);
+
+      const itemRows =
+        orderRows.length === 0
+          ? []
+          : await db
+              .select({
+                orderId: orderItems.orderId,
+                productId: orderItems.productId,
+                quantity: orderItems.quantity,
+                unitPrice: orderItems.unitPrice,
+                productName: products.name,
+              })
+              .from(orderItems)
+              .innerJoin(products, eq(products.id, orderItems.productId))
+              .where(
+                inArray(
+                  orderItems.orderId,
+                  orderRows.map((order) => order.id),
+                ),
+              )
+              .orderBy(orderItems.id);
+
+      return {
+        orders: orderRows.map((order) => ({
+          id: order.id,
+          createdAt: order.createdAt.toISOString(),
+          status: order.status,
+          customerId: order.customerId,
+          contactName: order.contactName,
+          company: order.company,
+          recordedBy: order.recordedBy,
+          ...orderLines(itemRows, order.id),
+        })),
+        total,
+        page,
+        pageSize,
+      };
+    }),
   /** Everything about a single order: status, customer, and all line items. */
   byId: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
