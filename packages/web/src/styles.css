@@ -45,6 +45,14 @@ h2 {
   font-weight: normal;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
 .card {
   background: var(--card);
   border: 1px solid var(--border);

@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, type Tx } from "../db/client.js";
 import {
@@ -116,6 +116,13 @@ const orderInput = z.object({
 
 const orderId = z.object({ id: z.number().int().positive() });
 
+/** How many orders the all-orders list shows per page. */
+const ORDERS_PAGE_SIZE = 20;
+
+const orderListInput = z
+  .object({ page: z.number().int().min(1).default(1) })
+  .optional();
+
 /** The one place an order total is worked out. */
 function totalOf(
   items: readonly { unitPrice: string; quantity: number }[],
@@ -170,48 +177,70 @@ async function linesOf(tx: Tx, id: number) {
 }
 
 export const orderProcedures = {
-  /** Every order, newest first, with its customer, contents and total. */
-  list: protectedProcedure.query(async (): Promise<OrderSummary[]> => {
-    const orderRows = await db
-      .select({
-        id: orders.id,
-        createdAt: orders.createdAt,
-        status: orders.status,
-        customerId: orders.customerId,
-        contactName: customers.contactName,
-        company: customers.company,
-        // Who recorded the order; null for old entries.
-        recordedBy: users.name,
-      })
-      .from(orders)
-      .innerJoin(customers, eq(customers.id, orders.customerId))
-      .leftJoin(users, eq(users.id, orders.createdById))
-      .orderBy(desc(orders.createdAt), desc(orders.id));
+  /**
+   * A page of orders, newest first, with each order's customer, contents
+   * and total, plus how many orders there are in all.
+   */
+  list: protectedProcedure
+    .input(orderListInput)
+    .query(async ({ input }): Promise<{ orders: OrderSummary[]; total: number }> => {
+      const page = input?.page ?? 1;
 
-    const itemRows = await db
-      .select({
-        orderId: orderItems.orderId,
-        productId: orderItems.productId,
-        quantity: orderItems.quantity,
-        unitPrice: orderItems.unitPrice,
-        productName: products.name,
-      })
-      .from(orderItems)
-      .innerJoin(products, eq(products.id, orderItems.productId))
-      .orderBy(orderItems.id);
+      const [orderRows, [{ count: total }]] = await Promise.all([
+        db
+          .select({
+            id: orders.id,
+            createdAt: orders.createdAt,
+            status: orders.status,
+            customerId: orders.customerId,
+            contactName: customers.contactName,
+            company: customers.company,
+            // Who recorded the order; null for old entries.
+            recordedBy: users.name,
+          })
+          .from(orders)
+          .innerJoin(customers, eq(customers.id, orders.customerId))
+          .leftJoin(users, eq(users.id, orders.createdById))
+          .orderBy(desc(orders.createdAt), desc(orders.id))
+          .limit(ORDERS_PAGE_SIZE)
+          .offset((page - 1) * ORDERS_PAGE_SIZE),
+        db.select({ count: sql<number>`count(*)::int` }).from(orders),
+      ]);
 
-    return orderRows.map((order) => {
-      const items = itemRows
-        .filter((item) => item.orderId === order.id)
-        .map(({ orderId: _orderId, ...item }) => item);
-      return {
-        ...order,
-        createdAt: order.createdAt.toISOString(),
-        items,
-        total: totalOf(items),
-      };
-    });
-  }),
+      const itemRows = orderRows.length
+        ? await db
+            .select({
+              orderId: orderItems.orderId,
+              productId: orderItems.productId,
+              quantity: orderItems.quantity,
+              unitPrice: orderItems.unitPrice,
+              productName: products.name,
+            })
+            .from(orderItems)
+            .innerJoin(products, eq(products.id, orderItems.productId))
+            .where(
+              inArray(
+                orderItems.orderId,
+                orderRows.map((order) => order.id),
+              ),
+            )
+            .orderBy(orderItems.id)
+        : [];
+
+      const ordersOut = orderRows.map((order) => {
+        const items = itemRows
+          .filter((item) => item.orderId === order.id)
+          .map(({ orderId: _orderId, ...item }) => item);
+        return {
+          ...order,
+          createdAt: order.createdAt.toISOString(),
+          items,
+          total: totalOf(items),
+        };
+      });
+
+      return { orders: ordersOut, total };
+    }),
 
   /** Fails with NOT_FOUND when there is no such order. */
   byId: protectedProcedure

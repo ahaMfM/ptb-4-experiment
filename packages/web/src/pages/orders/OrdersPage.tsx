@@ -8,13 +8,25 @@ import { useCancelOrder, useMarkShipped } from "./orderActions";
 import OrderDetailDialog from "./OrderDetailDialog";
 import PlaceOrderForm from "./PlaceOrderForm";
 
+/** Must match the server's `ORDERS_PAGE_SIZE`. */
+const ORDERS_PAGE_SIZE = 20;
+
 /** Orders: place a new one, and work through the ones already on record. */
 export default function OrdersPage() {
   const trpc = useTRPC();
   const [openOrderId, setOpenOrderId] = useState<number | null>(null);
 
-  const ordersQuery = useQuery(trpc.order.list.queryOptions());
-  const orders = ordersQuery.data ?? [];
+  const [page, setPage] = useState(1);
+
+  const ordersQuery = useQuery({
+    ...trpc.order.list.queryOptions({ page }),
+    // Keep the previous page on screen while the next one loads, so the
+    // table does not flicker when paging back and forth.
+    placeholderData: (previous) => previous,
+  });
+  const orders = ordersQuery.data?.orders ?? [];
+  const total = ordersQuery.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / ORDERS_PAGE_SIZE));
 
   const markShipped = useMarkShipped();
   const cancelOrder = useCancelOrder();
@@ -28,7 +40,7 @@ export default function OrdersPage() {
       <section className="card">
         <h2>
           All orders
-          {ordersQuery.isSuccess && <span className="count"> ({orders.length})</span>}
+          {ordersQuery.isSuccess && <span className="count"> ({total})</span>}
         </h2>
         {ordersQuery.isLoading && <p className="muted">Loading…</p>}
         {ordersQuery.isError && (
@@ -155,6 +167,29 @@ export default function OrdersPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {ordersQuery.isSuccess && total > 0 && (
+          <div className="pagination">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setPage((p) => p - 1)}
+              disabled={page <= 1}
+            >
+              Previous
+            </button>
+            <span className="muted">
+              Page {page} of {pageCount}
+            </span>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page >= pageCount}
+            >
+              Next
+            </button>
           </div>
         )}
       </section>
