@@ -624,3 +624,38 @@ tr.order-total-row td {
 .modal .actions {
   margin-top: 1.25rem;
 }
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.signin {
+  display: flex;
+  justify-content: center;
+  padding-top: 3rem;
+}
+
+.signin-card {
+  width: 100%;
+  max-width: 24rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.signin-card h1 {
+  margin: 0;
+}
+
+.signin-card p {
+  margin: 0;
+}
+
+.signin-hint {
+  font-size: 0.85rem;
+}

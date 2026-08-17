@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { hashPassword } from "../password.js";
 import * as schema from "./schema.js";
 
 const dataDir = path.resolve(
@@ -58,5 +59,45 @@ export async function initDb(): Promise<void> {
       "issued_at" timestamptz NOT NULL DEFAULT now(),
       "paid_at" date
     );
+    CREATE TABLE IF NOT EXISTS "users" (
+      "id" serial PRIMARY KEY,
+      "name" text NOT NULL,
+      "username" text NOT NULL UNIQUE,
+      "password_hash" text NOT NULL,
+      "created_at" timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS "sessions" (
+      "token" text PRIMARY KEY,
+      "user_id" integer NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+      "expires_at" timestamptz NOT NULL,
+      "created_at" timestamptz NOT NULL DEFAULT now()
+    );
+    -- Sessions that ran out are worthless; sweep them on startup.
+    DELETE FROM "sessions" WHERE "expires_at" < now();
   `);
+
+  await seedStarterUser();
+}
+
+/**
+ * The team sets its people up from within the application, but somebody has
+ * to be able to sign in first. When there are no users at all, create a
+ * starter account and say so on the console.
+ */
+async function seedStarterUser(): Promise<void> {
+  const existing = await db
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .limit(1);
+  if (existing.length > 0) return;
+
+  await db.insert(schema.users).values({
+    name: "Administrator",
+    username: "admin",
+    passwordHash: hashPassword("admin"),
+  });
+  console.log(
+    'No team members found — created a starter account (username "admin", password "admin"). ' +
+      "Sign in with it and add your team members on the Team page.",
+  );
 }

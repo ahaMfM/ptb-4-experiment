@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { and, desc, eq, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
+import { endSession, issueSession, type Context } from "./context.js";
 import { db } from "./db/index.js";
 import {
   customers,
@@ -8,7 +9,9 @@ import {
   orderItems,
   orders,
   products,
+  users,
 } from "./db/schema.js";
+import { hashPassword, verifyPassword } from "./password.js";
 
 export type {
   Customer,
@@ -17,10 +20,25 @@ export type {
   OrderItem,
   OrderStatus,
   Product,
+  PublicUser,
 } from "./db/schema.js";
 export { ORDER_STATUSES } from "./db/schema.js";
 
-const t = initTRPC.create();
+const t = initTRPC.context<Context>().create();
+
+/**
+ * Everyone signs in as themselves before using the application, so every
+ * procedure except signing in itself requires a signed-in user.
+ */
+const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+  if (!ctx.user) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Please sign in first.",
+    });
+  }
+  return next({ ctx: { ...ctx, user: ctx.user } });
+});
 
 /** Roughly 2 MB of binary data once base64-encoded, plus data-URL header. */
 const MAX_IMAGE_DATA_URL_LENGTH = 2_900_000;
@@ -75,6 +93,28 @@ function isForeignKeyViolation(err: unknown): boolean {
   return false;
 }
 
+/** Same cause-chain walk for unique-constraint violations (e.g. taken usernames). */
+function isUniqueViolation(err: unknown): boolean {
+  while (err instanceof Error) {
+    if (/unique|duplicate key/i.test(err.message)) return true;
+    err = err.cause;
+  }
+  return false;
+}
+
+const userInput = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(
+      /^[a-z0-9._-]+$/,
+      "Username may only contain letters, numbers, dots, dashes and underscores",
+    ),
+  password: z.string().min(4, "Password must be at least 4 characters"),
+});
+
 const customerInput = z.object({
   contactName: z.string().trim().min(1, "Contact name is required"),
   company: z.string().trim().min(1, "Company is required"),
@@ -84,8 +124,89 @@ const customerInput = z.object({
 });
 
 export const appRouter = t.router({
+  auth: t.router({
+    /** Who is currently signed in — null when nobody is. */
+    me: t.procedure.query(({ ctx }) => ctx.user),
+    signIn: t.procedure
+      .input(
+        z.object({
+          username: z.string().trim().toLowerCase().min(1, "Username is required"),
+          password: z.string().min(1, "Password is required"),
+        }),
+      )
+      .mutation(async ({ input, ctx }) => {
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.username, input.username));
+        // One message for both cases, so the form does not reveal which
+        // usernames exist.
+        if (!user || !verifyPassword(input.password, user.passwordHash)) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Wrong username or password.",
+          });
+        }
+        await issueSession(user.id, ctx.resHeaders);
+        return { id: user.id, name: user.name, username: user.username };
+      }),
+    signOut: t.procedure.mutation(async ({ ctx }) => {
+      await endSession(ctx.sessionToken, ctx.resHeaders);
+      return { ok: true };
+    }),
+  }),
+  user: t.router({
+    /** Everyone on the team, so it is visible who can sign in. */
+    list: protectedProcedure.query(async () => {
+      const rows = await db
+        .select({
+          id: users.id,
+          name: users.name,
+          username: users.username,
+          createdAt: users.createdAt,
+        })
+        .from(users)
+        .orderBy(users.name, users.id);
+      return rows.map((row) => ({
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+      }));
+    }),
+    /**
+     * Set up a new team member. There is no self-registration: only someone
+     * who is already signed in can add a person, and passes the credentials
+     * on to them directly.
+     */
+    create: protectedProcedure.input(userInput).mutation(async ({ input }) => {
+      let created;
+      try {
+        [created] = await db
+          .insert(users)
+          .values({
+            name: input.name,
+            username: input.username,
+            passwordHash: hashPassword(input.password),
+          })
+          .returning({
+            id: users.id,
+            name: users.name,
+            username: users.username,
+            createdAt: users.createdAt,
+          });
+      } catch (err) {
+        if (isUniqueViolation(err)) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `The username “${input.username}” is already taken.`,
+          });
+        }
+        throw err;
+      }
+      return { ...created, createdAt: created.createdAt.toISOString() };
+    }),
+  }),
   customer: t.router({
-    list: t.procedure
+    list: protectedProcedure
       .input(z.object({ search: z.string().trim().optional() }).optional())
       .query(({ input }) => {
         const term = input?.search;
@@ -110,7 +231,7 @@ export const appRouter = t.router({
      * All orders a customer has placed, newest first, each with its
      * current status (open / shipped / cancelled) and line items.
      */
-    orders: t.procedure
+    orders: protectedProcedure
       .input(z.object({ customerId: z.number().int().positive() }))
       .query(async ({ input }) => {
         const [customer] = await db
@@ -165,11 +286,11 @@ export const appRouter = t.router({
           };
         });
       }),
-    create: t.procedure.input(customerInput).mutation(async ({ input }) => {
+    create: protectedProcedure.input(customerInput).mutation(async ({ input }) => {
       const [created] = await db.insert(customers).values(input).returning();
       return created;
     }),
-    update: t.procedure
+    update: protectedProcedure
       .input(customerInput.extend({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         const { id, ...values } = input;
@@ -186,7 +307,7 @@ export const appRouter = t.router({
         }
         return updated;
       }),
-    remove: t.procedure
+    remove: protectedProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         let deleted;
@@ -216,14 +337,14 @@ export const appRouter = t.router({
   }),
   product: t.router({
     /** Public catalog: everyone can see the products on offer and their stock. */
-    list: t.procedure.query(() => {
+    list: protectedProcedure.query(() => {
       return db.select().from(products).orderBy(products.name, products.id);
     }),
-    create: t.procedure.input(productInput).mutation(async ({ input }) => {
+    create: protectedProcedure.input(productInput).mutation(async ({ input }) => {
       const [created] = await db.insert(products).values(input).returning();
       return created;
     }),
-    update: t.procedure
+    update: protectedProcedure
       .input(productInput.extend({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         const { id, ...values } = input;
@@ -240,7 +361,7 @@ export const appRouter = t.router({
         }
         return updated;
       }),
-    remove: t.procedure
+    remove: protectedProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         let deleted;
@@ -269,7 +390,7 @@ export const appRouter = t.router({
       }),
   }),
   order: t.router({
-    list: t.procedure.query(async () => {
+    list: protectedProcedure.query(async () => {
       const orderRows = await db
         .select({
           id: orders.id,
@@ -316,7 +437,7 @@ export const appRouter = t.router({
       });
     }),
     /** Everything about a single order: status, customer, and all line items. */
-    byId: t.procedure
+    byId: protectedProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .query(async ({ input }) => {
         const [order] = await db
@@ -359,7 +480,7 @@ export const appRouter = t.router({
           total: total.toFixed(2),
         };
       }),
-    create: t.procedure.input(orderInput).mutation(async ({ input }) => {
+    create: protectedProcedure.input(orderInput).mutation(async ({ input }) => {
       return db.transaction(async (tx) => {
         const [customer] = await tx
           .select({ id: customers.id })
@@ -447,7 +568,7 @@ export const appRouter = t.router({
      * Only open orders can be cancelled: once shipped, the goods have
      * left the warehouse and a plain cancellation no longer applies.
      */
-    cancel: t.procedure
+    cancel: protectedProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         return db.transaction(async (tx) => {
@@ -502,7 +623,7 @@ export const appRouter = t.router({
      * also issues the invoice for the order, with the amount taken from
      * the order's line items.
      */
-    markShipped: t.procedure
+    markShipped: protectedProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         return db.transaction(async (tx) => {
@@ -561,7 +682,7 @@ export const appRouter = t.router({
      * How many invoices are still waiting for payment. Shown on the
      * start screen so open receivables are visible right away.
      */
-    unpaidCount: t.procedure.query(async () => {
+    unpaidCount: protectedProcedure.query(async () => {
       const [row] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(invoices)
@@ -573,7 +694,7 @@ export const appRouter = t.router({
      * to and whether/when it was paid. Pass `unpaidOnly` to see just the
      * outstanding ones.
      */
-    list: t.procedure
+    list: protectedProcedure
       .input(z.object({ unpaidOnly: z.boolean().optional() }).optional())
       .query(({ input }) => {
         return db
@@ -604,7 +725,7 @@ export const appRouter = t.router({
      * payment. The `paid_at IS NULL` guard makes this a one-time action:
      * an invoice that is already paid stays as it was first recorded.
      */
-    markPaid: t.procedure
+    markPaid: protectedProcedure
       .input(
         z.object({
           id: z.number().int().positive(),

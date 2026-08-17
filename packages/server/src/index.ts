@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { trpcServer } from "@hono/trpc-server";
 import { Hono } from "hono";
+import { createContext } from "./context.js";
 import { initDb } from "./db/index.js";
 import { appRouter } from "./router.js";
 
@@ -12,6 +13,7 @@ app.use(
   "/trpc/*",
   trpcServer({
     router: appRouter,
+    createContext,
   }),
 );
 

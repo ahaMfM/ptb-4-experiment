@@ -8,6 +8,40 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 
+/**
+ * The people on the team who use the application. Accounts are set up from
+ * within the application by someone who is already signed in — there is no
+ * self-registration and no password recovery.
+ */
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type User = typeof users.$inferSelect;
+
+/** What the rest of the application may see of a user — never the password hash. */
+export type PublicUser = Pick<User, "id" | "name" | "username">;
+
+/** A signed-in browser session, identified by a random token kept in a cookie. */
+export const sessions = pgTable("sessions", {
+  token: text("token").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type Session = typeof sessions.$inferSelect;
+
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   contactName: text("contact_name").notNull(),

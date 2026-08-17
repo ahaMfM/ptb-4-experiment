@@ -1,14 +1,79 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import type { PublicUser } from "server/router";
 import CustomersPage from "./CustomersPage";
 import InvoicesPage from "./InvoicesPage";
 import OrdersPage from "./OrdersPage";
 import ProductsPage from "./ProductsPage";
+import SignInPage from "./SignInPage";
+import TeamPage from "./TeamPage";
 import { useTRPC } from "./trpc";
 
-type Page = "products" | "customers" | "orders" | "invoices";
+type Page = "products" | "customers" | "orders" | "invoices" | "team";
 
+/**
+ * Everyone signs in as themselves before using the application, so the app
+ * only appears once we know who is at the keyboard.
+ */
 export default function App() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const meQuery = useQuery(trpc.auth.me.queryOptions());
+  const signOut = useMutation(
+    trpc.auth.signOut.mutationOptions({
+      onSuccess: () => {
+        // Drop everything the previous user had loaded; the sign-in check
+        // re-runs and brings the sign-in screen back.
+        queryClient.clear();
+      },
+    }),
+  );
+
+  if (meQuery.isPending) {
+    return (
+      <main>
+        <p className="muted">Loading…</p>
+      </main>
+    );
+  }
+
+  if (meQuery.isError) {
+    return (
+      <main>
+        <p className="error">
+          The application could not be reached. Please try again in a moment.
+        </p>
+      </main>
+    );
+  }
+
+  if (!meQuery.data) {
+    return (
+      <main>
+        <SignInPage />
+      </main>
+    );
+  }
+
+  return (
+    <BackOffice
+      user={meQuery.data}
+      onSignOut={() => signOut.mutate()}
+      signingOut={signOut.isPending}
+    />
+  );
+}
+
+function BackOffice({
+  user,
+  onSignOut,
+  signingOut,
+}: {
+  user: PublicUser;
+  onSignOut: () => void;
+  signingOut: boolean;
+}) {
   const trpc = useTRPC();
   const [page, setPage] = useState<Page>("products");
 
@@ -17,6 +82,20 @@ export default function App() {
 
   return (
     <main>
+      <div className="topbar">
+        <span className="muted">
+          Signed in as <strong>{user.name}</strong>
+        </span>
+        <button
+          type="button"
+          className="link-button"
+          onClick={onSignOut}
+          disabled={signingOut}
+        >
+          {signingOut ? "Signing out…" : "Sign out"}
+        </button>
+      </div>
+
       <nav className="tabs" aria-label="Main navigation">
         <button
           type="button"
@@ -54,6 +133,13 @@ export default function App() {
             </span>
           )}
         </button>
+        <button
+          type="button"
+          className={page === "team" ? "tab active" : "tab"}
+          onClick={() => setPage("team")}
+        >
+          Team
+        </button>
       </nav>
 
       {page === "products" && unpaidQuery.isSuccess && (
@@ -77,6 +163,7 @@ export default function App() {
       {page === "customers" && <CustomersPage />}
       {page === "orders" && <OrdersPage />}
       {page === "invoices" && <InvoicesPage />}
+      {page === "team" && <TeamPage />}
     </main>
   );
 }
