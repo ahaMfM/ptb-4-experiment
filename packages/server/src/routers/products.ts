@@ -32,6 +32,15 @@ export const productRouter = router({
   list: protectedProcedure.query(() => {
     return db.select().from(products).orderBy(products.name, products.id);
   }),
+  byId: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const [product] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, input.id));
+      return orNotFound(product, "Product not found");
+    }),
   create: protectedProcedure.input(productInput).mutation(async ({ input }) => {
     const [created] = await db.insert(products).values(input).returning();
     return created;

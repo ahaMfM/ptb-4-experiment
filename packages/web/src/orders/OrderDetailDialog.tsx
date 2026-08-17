@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import Modal from "../components/Modal";
 import QueryFeedback from "../components/QueryFeedback";
 import StatusBadge from "../components/StatusBadge";
 import { readableError } from "../lib/errors";
 import { formatDate, formatDateTime, formatPrice } from "../lib/format";
+import ProductDetailDialog from "../products/ProductDetailDialog";
 import { useTRPC } from "../trpc";
 import {
   cancellationMessage,
@@ -24,6 +26,7 @@ export default function OrderDetailDialog({
   const trpc = useTRPC();
   const detailQuery = useQuery(trpc.order.byId.queryOptions({ id: orderId }));
   const order = detailQuery.data;
+  const [viewedProductId, setViewedProductId] = useState<number | null>(null);
 
   const shipOrder = useShipOrder();
   const cancelOrder = useCancelOrder();
@@ -86,7 +89,15 @@ export default function OrderDetailDialog({
               <tbody>
                 {order.items.map((item) => (
                   <tr key={item.productId}>
-                    <td>{item.productName}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => setViewedProductId(item.productId)}
+                      >
+                        {item.productName}
+                      </button>
+                    </td>
                     <td className="num">{item.quantity}</td>
                     <td className="num">{formatPrice(item.unitPrice)}</td>
                     <td className="num">
@@ -145,6 +156,13 @@ export default function OrderDetailDialog({
           Close
         </button>
       </div>
+
+      {viewedProductId !== null && (
+        <ProductDetailDialog
+          productId={viewedProductId}
+          onClose={() => setViewedProductId(null)}
+        />
+      )}
     </Modal>
   );
 }
