@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import StatusBadge from "./StatusBadge";
@@ -10,6 +11,49 @@ type OrderLine = {
 };
 
 const emptyLine: OrderLine = { productId: "", quantity: "1" };
+
+/**
+ * Sets an order's status in both the list and detail caches right away, so
+ * the row/badge flips the instant the user clicks. Returns a rollback that
+ * restores the exact previous cache contents if the mutation fails.
+ */
+async function applyOptimisticStatus({
+  queryClient,
+  trpc,
+  orderId,
+  status,
+}: {
+  queryClient: QueryClient;
+  trpc: ReturnType<typeof useTRPC>;
+  orderId: number;
+  status: "shipped" | "cancelled";
+}) {
+  const byIdKey = trpc.order.byId.queryKey({ id: orderId });
+  const listKey = trpc.order.list.queryKey();
+
+  // Stop any in-flight refetch from clobbering the optimistic write below.
+  await Promise.all([
+    queryClient.cancelQueries({ queryKey: byIdKey }),
+    queryClient.cancelQueries({ queryKey: listKey }),
+  ]);
+
+  const previousById = queryClient.getQueryData(byIdKey);
+  const previousList = queryClient.getQueryData(listKey);
+
+  queryClient.setQueryData(byIdKey, (order: typeof previousById) =>
+    order ? { ...order, status } : order,
+  );
+  queryClient.setQueryData(listKey, (orders: typeof previousList) =>
+    orders?.map((order) => (order.id === orderId ? { ...order, status } : order)),
+  );
+
+  return {
+    rollback: () => {
+      queryClient.setQueryData(byIdKey, previousById);
+      queryClient.setQueryData(listKey, previousList);
+    },
+  };
+}
 
 function OrderDetailDialog({
   orderId,
@@ -25,7 +69,18 @@ function OrderDetailDialog({
 
   const markShipped = useMutation(
     trpc.order.markShipped.mutationOptions({
-      onSuccess: async () => {
+      onMutate: async () => {
+        return applyOptimisticStatus({
+          queryClient,
+          trpc,
+          orderId,
+          status: "shipped",
+        });
+      },
+      onError: (_err, _vars, context) => {
+        context?.rollback();
+      },
+      onSettled: async () => {
         await Promise.all([
           queryClient.invalidateQueries(trpc.order.byId.queryFilter({ id: orderId })),
           queryClient.invalidateQueries(trpc.order.list.queryFilter()),
@@ -39,7 +94,18 @@ function OrderDetailDialog({
 
   const cancelOrder = useMutation(
     trpc.order.cancel.mutationOptions({
-      onSuccess: async () => {
+      onMutate: async () => {
+        return applyOptimisticStatus({
+          queryClient,
+          trpc,
+          orderId,
+          status: "cancelled",
+        });
+      },
+      onError: (_err, _vars, context) => {
+        context?.rollback();
+      },
+      onSettled: async () => {
         await Promise.all([
           queryClient.invalidateQueries(trpc.order.byId.queryFilter({ id: orderId })),
           queryClient.invalidateQueries(trpc.order.list.queryFilter()),
@@ -237,12 +303,17 @@ export default function OrdersPage() {
 
   const markShipped = useMutation(
     trpc.order.markShipped.mutationOptions({
-      onSuccess: async (order) => {
+      onMutate: async ({ id }) => {
+        return applyOptimisticStatus({ queryClient, trpc, orderId: id, status: "shipped" });
+      },
+      onError: (_err, _vars, context) => {
+        context?.rollback();
+      },
+      onSettled: async (order, _err, vars) => {
+        const id = order?.id ?? vars.id;
         await Promise.all([
           queryClient.invalidateQueries(trpc.order.list.queryFilter()),
-          queryClient.invalidateQueries(
-            trpc.order.byId.queryFilter({ id: order.id }),
-          ),
+          queryClient.invalidateQueries(trpc.order.byId.queryFilter({ id })),
           // Shipping issues the invoice for the order, which also
           // changes the unpaid-invoice count on the start screen.
           queryClient.invalidateQueries(trpc.invoice.pathFilter()),
@@ -253,12 +324,17 @@ export default function OrdersPage() {
 
   const cancelOrder = useMutation(
     trpc.order.cancel.mutationOptions({
-      onSuccess: async (order) => {
+      onMutate: async ({ id }) => {
+        return applyOptimisticStatus({ queryClient, trpc, orderId: id, status: "cancelled" });
+      },
+      onError: (_err, _vars, context) => {
+        context?.rollback();
+      },
+      onSettled: async (order, _err, vars) => {
+        const id = order?.id ?? vars.id;
         await Promise.all([
           queryClient.invalidateQueries(trpc.order.list.queryFilter()),
-          queryClient.invalidateQueries(
-            trpc.order.byId.queryFilter({ id: order.id }),
-          ),
+          queryClient.invalidateQueries(trpc.order.byId.queryFilter({ id })),
           // Cancelling puts the ordered quantities back on stock.
           queryClient.invalidateQueries(trpc.product.list.queryFilter()),
         ]);
