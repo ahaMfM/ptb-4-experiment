@@ -1,0 +1,171 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, type FormEvent } from "react";
+import StatusBadge from "./StatusBadge";
+import { useTRPC } from "./trpc";
+import { formatDate, formatDateTime, formatPrice, readableError } from "./utils";
+
+/** Today's date in the user's timezone as YYYY-MM-DD, for the date input. */
+function todayIso(): string {
+  return new Intl.DateTimeFormat("en-CA").format(new Date());
+}
+
+function RecordPaymentForm({
+  invoiceId,
+  onDone,
+}: {
+  invoiceId: number;
+  onDone: (message: string) => void;
+}) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  const [paidAt, setPaidAt] = useState(todayIso());
+
+  const markPaid = useMutation(
+    trpc.invoice.markPaid.mutationOptions({
+      onSuccess: async (invoice) => {
+        await queryClient.invalidateQueries(trpc.invoice.list.queryFilter());
+        onDone(
+          `Payment of ${formatPrice(invoice.amount)} for invoice #${invoice.id} recorded (paid on ${formatDate(invoice.paidAt ?? paidAt)}).`,
+        );
+      },
+    }),
+  );
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    markPaid.mutate({ id: invoiceId, paidAt });
+  };
+
+  return (
+    <form className="payment-form" onSubmit={handleSubmit}>
+      <label>
+        <span className="visually-hidden">Payment date</span>
+        <input
+          type="date"
+          value={paidAt}
+          max={todayIso()}
+          onChange={(e) => setPaidAt(e.target.value)}
+          required
+        />
+      </label>
+      <button type="submit" className="link-button" disabled={markPaid.isPending}>
+        {markPaid.isPending ? "Recording…" : "Record payment"}
+      </button>
+      {markPaid.isError && (
+        <span className="error">{readableError(markPaid.error.message)}</span>
+      )}
+    </form>
+  );
+}
+
+export default function InvoicesPage() {
+  const trpc = useTRPC();
+  const [unpaidOnly, setUnpaidOnly] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const invoicesQuery = useQuery(
+    trpc.invoice.list.queryOptions({ unpaidOnly }),
+  );
+  const invoices = invoicesQuery.data ?? [];
+
+  const unpaid = invoices.filter((invoice) => invoice.paidAt === null);
+  const outstanding = unpaid.reduce(
+    (sum, invoice) => sum + Number(invoice.amount),
+    0,
+  );
+
+  return (
+    <>
+      <h1>Invoices</h1>
+
+      <section className="card">
+        <div className="invoice-toolbar">
+          <h2>
+            {unpaidOnly ? "Unpaid invoices" : "All invoices"}
+            {invoicesQuery.isSuccess && (
+              <span className="count"> ({invoices.length})</span>
+            )}
+          </h2>
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={unpaidOnly}
+              onChange={(e) => setUnpaidOnly(e.target.checked)}
+            />
+            Show unpaid only
+          </label>
+        </div>
+
+        {invoicesQuery.isSuccess && unpaid.length > 0 && (
+          <p className="muted">
+            {unpaid.length === 1
+              ? "1 invoice is unpaid"
+              : `${unpaid.length} invoices are unpaid`}
+            , {formatPrice(outstanding)} outstanding.
+          </p>
+        )}
+
+        {invoicesQuery.isLoading && <p className="muted">Loading…</p>}
+        {invoicesQuery.isError && (
+          <p className="error">
+            Could not load invoices: {readableError(invoicesQuery.error.message)}
+          </p>
+        )}
+        {invoicesQuery.isSuccess && invoices.length === 0 && (
+          <p className="muted">
+            {unpaidOnly
+              ? "No unpaid invoices — everything has been paid."
+              : "No invoices yet. An invoice appears here as soon as an order is marked as shipped."}
+          </p>
+        )}
+        {success && <p className="success">{success}</p>}
+
+        {invoices.length > 0 && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Issued</th>
+                  <th className="num">Amount</th>
+                  <th>Status</th>
+                  <th>Payment</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map((invoice) => (
+                  <tr key={invoice.id}>
+                    <td>#{invoice.id}</td>
+                    <td>#{invoice.orderId}</td>
+                    <td>
+                      {invoice.company}
+                      <br />
+                      <span className="muted">{invoice.contactName}</span>
+                    </td>
+                    <td>{formatDateTime(invoice.issuedAt)}</td>
+                    <td className="num">{formatPrice(invoice.amount)}</td>
+                    <td>
+                      <StatusBadge status={invoice.paidAt ? "paid" : "unpaid"} />
+                    </td>
+                    <td>
+                      {invoice.paidAt ? (
+                        <span>Paid on {formatDate(invoice.paidAt)}</span>
+                      ) : (
+                        <RecordPaymentForm
+                          invoiceId={invoice.id}
+                          onDone={setSuccess}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}

@@ -29,6 +29,8 @@ function OrderDetailDialog({
         await Promise.all([
           queryClient.invalidateQueries(trpc.order.byId.queryFilter({ id: orderId })),
           queryClient.invalidateQueries(trpc.order.list.queryFilter()),
+          // Shipping issues the invoice for the order.
+          queryClient.invalidateQueries(trpc.invoice.list.queryFilter()),
         ]);
       },
     }),
@@ -135,6 +137,12 @@ function OrderDetailDialog({
         {markShipped.isError && (
           <p className="error">{readableError(markShipped.error.message)}</p>
         )}
+        {markShipped.isSuccess && (
+          <p className="success">
+            Order #{orderId} was shipped. Invoice #{markShipped.data.invoiceId} over{" "}
+            {formatPrice(markShipped.data.invoiceAmount)} was issued.
+          </p>
+        )}
         {cancelOrder.isError && (
           <p className="error">{readableError(cancelOrder.error.message)}</p>
         )}
@@ -230,6 +238,8 @@ export default function OrdersPage() {
           queryClient.invalidateQueries(
             trpc.order.byId.queryFilter({ id: order.id }),
           ),
+          // Shipping issues the invoice for the order.
+          queryClient.invalidateQueries(trpc.invoice.list.queryFilter()),
         ]);
       },
     }),
@@ -426,6 +436,13 @@ export default function OrdersPage() {
           <p className="error">
             Could not mark the order as shipped:{" "}
             {readableError(markShipped.error.message)}
+          </p>
+        )}
+        {markShipped.isSuccess && (
+          <p className="success">
+            Order #{markShipped.data.id} was shipped. Invoice #
+            {markShipped.data.invoiceId} over{" "}
+            {formatPrice(markShipped.data.invoiceAmount)} was issued.
           </p>
         )}
         {cancelOrder.isError && (

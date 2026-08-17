@@ -63,3 +63,25 @@ export const orderItems = pgTable("order_items", {
 });
 
 export type OrderItem = typeof orderItems.$inferSelect;
+
+/**
+ * One invoice per shipped order, created automatically when the order is
+ * marked as shipped. The amount is frozen at shipping time from the order's
+ * line items. An invoice is unpaid until `paidAt` is set.
+ */
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id")
+    .notNull()
+    .unique()
+    .references(() => orders.id),
+  /** Total invoiced amount in EUR, as a numeric string (e.g. "119.80"). */
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
+  issuedAt: timestamp("issued_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  /** Date the customer paid; null while the invoice is unpaid. */
+  paidAt: date("paid_at"),
+});
+
+export type Invoice = typeof invoices.$inferSelect;

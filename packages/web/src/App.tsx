@@ -1,9 +1,10 @@
 import { useState } from "react";
 import CustomersPage from "./CustomersPage";
+import InvoicesPage from "./InvoicesPage";
 import OrdersPage from "./OrdersPage";
 import ProductsPage from "./ProductsPage";
 
-type Page = "products" | "customers" | "orders";
+type Page = "products" | "customers" | "orders" | "invoices";
 
 export default function App() {
   const [page, setPage] = useState<Page>("products");
@@ -32,10 +33,18 @@ export default function App() {
         >
           Orders
         </button>
+        <button
+          type="button"
+          className={page === "invoices" ? "tab active" : "tab"}
+          onClick={() => setPage("invoices")}
+        >
+          Invoices
+        </button>
       </nav>
       {page === "products" && <ProductsPage />}
       {page === "customers" && <CustomersPage />}
       {page === "orders" && <OrdersPage />}
+      {page === "invoices" && <InvoicesPage />}
     </main>
   );
 }

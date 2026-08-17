@@ -1,10 +1,23 @@
 import { initTRPC, TRPCError } from "@trpc/server";
-import { and, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "./db/index.js";
-import { customers, orderItems, orders, products } from "./db/schema.js";
+import {
+  customers,
+  invoices,
+  orderItems,
+  orders,
+  products,
+} from "./db/schema.js";
 
-export type { Customer, Order, OrderItem, OrderStatus, Product } from "./db/schema.js";
+export type {
+  Customer,
+  Invoice,
+  Order,
+  OrderItem,
+  OrderStatus,
+  Product,
+} from "./db/schema.js";
 export { ORDER_STATUSES } from "./db/schema.js";
 
 const t = initTRPC.create();
@@ -485,36 +498,144 @@ export const appRouter = t.router({
       }),
     /**
      * Mark an order as sent out. Only open orders can be shipped, so the
-     * status filter doubles as a guard against double-shipping.
+     * status filter doubles as a guard against double-shipping. Shipping
+     * also issues the invoice for the order, with the amount taken from
+     * the order's line items.
      */
     markShipped: t.procedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
+        return db.transaction(async (tx) => {
+          const [updated] = await tx
+            .update(orders)
+            .set({ status: "shipped" })
+            .where(and(eq(orders.id, input.id), eq(orders.status, "open")))
+            .returning();
+          if (!updated) {
+            const [existing] = await tx
+              .select({ status: orders.status })
+              .from(orders)
+              .where(eq(orders.id, input.id));
+            if (!existing) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Order not found",
+              });
+            }
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                existing.status === "shipped"
+                  ? `Order #${input.id} is already marked as shipped.`
+                  : `Order #${input.id} is ${existing.status} and can no longer be shipped.`,
+            });
+          }
+
+          // Issue the invoice: the amount is the order total, frozen now.
+          const items = await tx
+            .select({
+              quantity: orderItems.quantity,
+              unitPrice: orderItems.unitPrice,
+            })
+            .from(orderItems)
+            .where(eq(orderItems.orderId, input.id));
+          const amount = items
+            .reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0)
+            .toFixed(2);
+          const [invoice] = await tx
+            .insert(invoices)
+            .values({ orderId: input.id, amount })
+            .returning();
+
+          return {
+            id: updated.id,
+            status: updated.status,
+            invoiceId: invoice.id,
+            invoiceAmount: invoice.amount,
+          };
+        });
+      }),
+  }),
+  invoice: t.router({
+    /**
+     * All invoices, newest first, each with the customer it is addressed
+     * to and whether/when it was paid. Pass `unpaidOnly` to see just the
+     * outstanding ones.
+     */
+    list: t.procedure
+      .input(z.object({ unpaidOnly: z.boolean().optional() }).optional())
+      .query(({ input }) => {
+        return db
+          .select({
+            id: invoices.id,
+            orderId: invoices.orderId,
+            amount: invoices.amount,
+            issuedAt: invoices.issuedAt,
+            paidAt: invoices.paidAt,
+            customerId: customers.id,
+            contactName: customers.contactName,
+            company: customers.company,
+          })
+          .from(invoices)
+          .innerJoin(orders, eq(orders.id, invoices.orderId))
+          .innerJoin(customers, eq(customers.id, orders.customerId))
+          .where(input?.unpaidOnly ? isNull(invoices.paidAt) : undefined)
+          .orderBy(desc(invoices.issuedAt), desc(invoices.id))
+          .then((rows) =>
+            rows.map((row) => ({
+              ...row,
+              issuedAt: row.issuedAt.toISOString(),
+            })),
+          );
+      }),
+    /**
+     * Record that the customer paid an invoice, together with the date of
+     * payment. The `paid_at IS NULL` guard makes this a one-time action:
+     * an invoice that is already paid stays as it was first recorded.
+     */
+    markPaid: t.procedure
+      .input(
+        z.object({
+          id: z.number().int().positive(),
+          paidAt: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/, "Payment date must be YYYY-MM-DD")
+            .refine((value) => {
+              // JS Date rolls over out-of-range days (Feb 31 → Mar 3), so
+              // check that the components survive a round trip unchanged.
+              const [year, month, day] = value.split("-").map(Number);
+              const parsed = new Date(Date.UTC(year, month - 1, day));
+              return (
+                parsed.getUTCFullYear() === year &&
+                parsed.getUTCMonth() === month - 1 &&
+                parsed.getUTCDate() === day
+              );
+            }, "Payment date must be a real calendar date"),
+        }),
+      )
+      .mutation(async ({ input }) => {
         const [updated] = await db
-          .update(orders)
-          .set({ status: "shipped" })
-          .where(and(eq(orders.id, input.id), eq(orders.status, "open")))
+          .update(invoices)
+          .set({ paidAt: input.paidAt })
+          .where(and(eq(invoices.id, input.id), isNull(invoices.paidAt)))
           .returning();
         if (!updated) {
           const [existing] = await db
-            .select({ status: orders.status })
-            .from(orders)
-            .where(eq(orders.id, input.id));
+            .select({ paidAt: invoices.paidAt })
+            .from(invoices)
+            .where(eq(invoices.id, input.id));
           if (!existing) {
             throw new TRPCError({
               code: "NOT_FOUND",
-              message: "Order not found",
+              message: "Invoice not found",
             });
           }
           throw new TRPCError({
             code: "CONFLICT",
-            message:
-              existing.status === "shipped"
-                ? `Order #${input.id} is already marked as shipped.`
-                : `Order #${input.id} is ${existing.status} and can no longer be shipped.`,
+            message: `Invoice #${input.id} is already recorded as paid on ${existing.paidAt}.`,
           });
         }
-        return { id: updated.id, status: updated.status };
+        return updated;
       }),
   }),
 });

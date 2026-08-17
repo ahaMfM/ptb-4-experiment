@@ -497,6 +497,45 @@ tr.order-total-row td {
   color: var(--error);
 }
 
+.status-badge.status-paid {
+  background: #e6f4ea;
+  color: #1e7a3c;
+}
+
+.status-badge.status-unpaid {
+  background: #fdf3e0;
+  color: #915f13;
+}
+
+.invoice-toolbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.payment-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.payment-form input[type="date"] {
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+}
+
 .modal h3 {
   font-size: 1rem;
   margin: 1.25rem 0 0.5rem;

@@ -51,5 +51,12 @@ export async function initDb(): Promise<void> {
       "quantity" integer NOT NULL CHECK ("quantity" > 0),
       "unit_price" numeric(10,2) NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS "invoices" (
+      "id" serial PRIMARY KEY,
+      "order_id" integer NOT NULL UNIQUE REFERENCES "orders"("id"),
+      "amount" numeric(10,2) NOT NULL,
+      "issued_at" timestamptz NOT NULL DEFAULT now(),
+      "paid_at" date
+    );
   `);
 }
