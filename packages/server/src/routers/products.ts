@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import { products } from "../db/schema.js";
 import { orNotFound, writeExplainingConstraints } from "../errors.js";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, router, writeProcedure } from "../trpc.js";
 
 /** Roughly 2 MB of binary data once base64-encoded, plus data-URL header. */
 const MAX_IMAGE_DATA_URL_LENGTH = 2_900_000;
@@ -32,11 +32,11 @@ export const productRouter = router({
   list: protectedProcedure.query(() => {
     return db.select().from(products).orderBy(products.name, products.id);
   }),
-  create: protectedProcedure.input(productInput).mutation(async ({ input }) => {
+  create: writeProcedure.input(productInput).mutation(async ({ input }) => {
     const [created] = await db.insert(products).values(input).returning();
     return created;
   }),
-  update: protectedProcedure
+  update: writeProcedure
     .input(productInput.extend({ id: z.number().int().positive() }))
     .mutation(async ({ input }) => {
       const { id, ...values } = input;
@@ -47,7 +47,7 @@ export const productRouter = router({
         .returning();
       return orNotFound(updated, "Product not found");
     }),
-  remove: protectedProcedure
+  remove: writeProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input }) => {
       const [deleted] = await writeExplainingConstraints(

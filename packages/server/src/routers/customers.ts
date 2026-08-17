@@ -12,7 +12,7 @@ import {
 } from "../db/schema.js";
 import { orNotFound, writeExplainingConstraints } from "../errors.js";
 import { orderLines } from "../line-items.js";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, router, writeProcedure } from "../trpc.js";
 
 /**
  * A customer as the web application sees it: the stored fields plus the
@@ -123,7 +123,7 @@ export const customerRouter = router({
         ...orderLines(itemRows, order.id),
       }));
     }),
-  create: protectedProcedure
+  create: writeProcedure
     .input(customerInput)
     .mutation(async ({ input, ctx }): Promise<CustomerRecord> => {
       // Remember who recorded the customer and when.
@@ -134,7 +134,7 @@ export const customerRouter = router({
       const { createdById: _createdById, ...stored } = created;
       return { ...withIsoCreatedAt(stored), recordedBy: ctx.user.name };
     }),
-  update: protectedProcedure
+  update: writeProcedure
     .input(customerInput.extend({ id: z.number().int().positive() }))
     .mutation(async ({ input }) => {
       const { id, ...values } = input;
@@ -147,7 +147,7 @@ export const customerRouter = router({
         .returning();
       return withIsoCreatedAt(orNotFound(updated, "Customer not found"));
     }),
-  remove: protectedProcedure
+  remove: writeProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input }) => {
       const [deleted] = await writeExplainingConstraints(

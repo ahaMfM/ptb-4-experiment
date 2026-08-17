@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useCanWrite } from "../auth/CurrentUserContext";
 import QueryFeedback from "../components/QueryFeedback";
 import StatusBadge from "../components/StatusBadge";
 import { formatDate, formatDateTime, formatPrice } from "../lib/format";
@@ -9,6 +10,7 @@ import RecordPaymentForm from "./RecordPaymentForm";
 /** What has been invoiced, what is still outstanding, and who paid when. */
 export default function InvoicesPage() {
   const trpc = useTRPC();
+  const canWrite = useCanWrite();
   const [unpaidOnly, setUnpaidOnly] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -97,11 +99,13 @@ export default function InvoicesPage() {
                     <td>
                       {invoice.paidAt ? (
                         <span>Paid on {formatDate(invoice.paidAt)}</span>
-                      ) : (
+                      ) : canWrite ? (
                         <RecordPaymentForm
                           invoiceId={invoice.id}
                           onDone={setSuccess}
                         />
+                      ) : (
+                        <span className="muted">Unpaid</span>
                       )}
                     </td>
                   </tr>

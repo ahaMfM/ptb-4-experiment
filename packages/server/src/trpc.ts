@@ -22,3 +22,18 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   }
   return next({ ctx: { ...ctx, user: ctx.user } });
 });
+
+/**
+ * For anything that adds, changes or removes data — including placing an
+ * order or recording a payment. A "read_only" team member is signed in like
+ * everyone else but may only look, so this is refused for them.
+ */
+export const writeProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== "full") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Your account is read-only and cannot make changes.",
+    });
+  }
+  return next({ ctx });
+});

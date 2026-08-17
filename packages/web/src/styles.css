@@ -581,6 +581,18 @@ tr.order-total-row td {
   color: var(--pending-text);
 }
 
+.role-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--pending-bg);
+  color: var(--pending-text);
+  white-space: nowrap;
+}
+
 .invoice-toolbar {
   display: flex;
   align-items: baseline;

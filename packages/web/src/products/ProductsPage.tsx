@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import type { Product } from "server/router";
+import { useCanWrite } from "../auth/CurrentUserContext";
 import QueryFeedback from "../components/QueryFeedback";
 import { readableError } from "../lib/errors";
 import { formatPrice } from "../lib/format";
@@ -16,6 +17,7 @@ import ProductFormFields, {
 export default function ProductsPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [form, setForm] = useState(emptyProductForm);
   const [formKey, setFormKey] = useState(0); // remount to clear the file input
   const [error, setError] = useState<string | null>(null);
@@ -50,22 +52,26 @@ export default function ProductsPage() {
     <>
       <h1>Products</h1>
 
-      <section className="card">
-        <h2>Add a product</h2>
-        <form onSubmit={handleSubmit}>
-          <ProductFormFields
-            key={formKey}
-            form={form}
-            onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}
-            onError={setError}
-            requireImage
-          />
-          {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={createProduct.isPending}>
-            {createProduct.isPending ? "Adding…" : "Add product"}
-          </button>
-        </form>
-      </section>
+      {canWrite && (
+        <section className="card">
+          <h2>Add a product</h2>
+          <form onSubmit={handleSubmit}>
+            <ProductFormFields
+              key={formKey}
+              form={form}
+              onChange={(patch) =>
+                setForm((current) => ({ ...current, ...patch }))
+              }
+              onError={setError}
+              requireImage
+            />
+            {error && <p className="error">{error}</p>}
+            <button type="submit" disabled={createProduct.isPending}>
+              {createProduct.isPending ? "Adding…" : "Add product"}
+            </button>
+          </form>
+        </section>
+      )}
 
       <section className="card">
         <h2>
@@ -107,22 +113,24 @@ export default function ProductsPage() {
                         ? `${product.stock} in stock`
                         : "Out of stock"}
                     </span>
-                    <span className="row-actions">
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() => setEditing(product)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="link-button danger-link"
-                        onClick={() => setDeleting(product)}
-                      >
-                        Delete
-                      </button>
-                    </span>
+                    {canWrite && (
+                      <span className="row-actions">
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => setEditing(product)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="link-button danger-link"
+                          onClick={() => setDeleting(product)}
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    )}
                   </div>
                 </div>
               </article>

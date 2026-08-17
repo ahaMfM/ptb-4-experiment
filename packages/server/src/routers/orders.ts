@@ -13,7 +13,7 @@ import {
 } from "../db/schema.js";
 import { orNotFound } from "../errors.js";
 import { lineItemsTotal, orderLines } from "../line-items.js";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, router, writeProcedure } from "../trpc.js";
 
 const orderInput = z.object({
   customerId: z.number().int().positive("Please choose a customer"),
@@ -150,7 +150,7 @@ export const orderRouter = router({
         total: lineItemsTotal(items),
       };
     }),
-  create: protectedProcedure
+  create: writeProcedure
     .input(orderInput)
     .mutation(async ({ input, ctx }) => {
       return db.transaction(async (tx) => {
@@ -241,7 +241,7 @@ export const orderRouter = router({
    * Only open orders can be cancelled: once shipped, the goods have
    * left the warehouse and a plain cancellation no longer applies.
    */
-  cancel: protectedProcedure
+  cancel: writeProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input }) => {
       return db.transaction(async (tx) => {
@@ -279,7 +279,7 @@ export const orderRouter = router({
    * also issues the invoice for the order, with the amount taken from
    * the order's line items.
    */
-  markShipped: protectedProcedure
+  markShipped: writeProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input }) => {
       return db.transaction(async (tx) => {

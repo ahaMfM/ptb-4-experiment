@@ -3,7 +3,7 @@ import { db } from "../db/index.js";
 import { users } from "../db/schema.js";
 import { writeExplainingConstraints } from "../errors.js";
 import { hashPassword } from "../password.js";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, router, writeProcedure } from "../trpc.js";
 
 const userInput = z.object({
   name: z.string().trim().min(1, "Name is required"),
@@ -16,6 +16,10 @@ const userInput = z.object({
       "Username may only contain letters, numbers, dots, dashes and underscores",
     ),
   password: z.string().min(4, "Password must be at least 4 characters"),
+  // Full access unless the person setting the account up says otherwise, so
+  // everyone set up so far — and anyone added without a choice — keeps
+  // being able to do everything, as before roles existed.
+  role: z.enum(["full", "read_only"]).default("full"),
 });
 
 /** The columns of a team member the rest of the application may see. */
@@ -23,6 +27,7 @@ const teamMemberColumns = {
   id: users.id,
   name: users.name,
   username: users.username,
+  role: users.role,
   createdAt: users.createdAt,
 };
 
@@ -44,7 +49,7 @@ export const userRouter = router({
    * who is already signed in can add a person, and passes the credentials
    * on to them directly.
    */
-  create: protectedProcedure.input(userInput).mutation(async ({ input }) => {
+  create: writeProcedure.input(userInput).mutation(async ({ input }) => {
     const [created] = await writeExplainingConstraints(
       () =>
         db
@@ -53,6 +58,7 @@ export const userRouter = router({
             name: input.name,
             username: input.username,
             passwordHash: hashPassword(input.password),
+            role: input.role,
           })
           .returning(teamMemberColumns),
       {

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useCanWrite } from "../auth/CurrentUserContext";
 import Modal from "../components/Modal";
 import QueryFeedback from "../components/QueryFeedback";
 import StatusBadge from "../components/StatusBadge";
@@ -22,6 +23,7 @@ export default function OrderDetailDialog({
   onClose: () => void;
 }) {
   const trpc = useTRPC();
+  const canWrite = useCanWrite();
   const detailQuery = useQuery(trpc.order.byId.queryOptions({ id: orderId }));
   const order = detailQuery.data;
 
@@ -118,7 +120,7 @@ export default function OrderDetailDialog({
       )}
 
       <div className="actions">
-        {order?.status === "open" && (
+        {canWrite && order?.status === "open" && (
           <>
             <button
               type="button"

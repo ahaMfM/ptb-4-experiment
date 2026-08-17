@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ComponentType } from "react";
 import type { PublicUser } from "server/router";
+import { CurrentUserProvider } from "./auth/CurrentUserContext";
 import SignInPage from "./auth/SignInPage";
 import CustomersPage from "./customers/CustomersPage";
 import InvoicesPage from "./invoices/InvoicesPage";
@@ -105,57 +106,62 @@ function BackOffice({
   const { Screen } = PAGES.find((candidate) => candidate.id === page)!;
 
   return (
-    <main>
-      <div className="topbar">
-        <span className="muted">
-          Signed in as <strong>{user.name}</strong>
-        </span>
-        <button
-          type="button"
-          className="link-button"
-          onClick={onSignOut}
-          disabled={signingOut}
-        >
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
-      </div>
-
-      <nav className="tabs" aria-label="Main navigation">
-        {PAGES.map(({ id, label }) => (
-          <button
-            key={id}
-            type="button"
-            className={page === id ? "tab active" : "tab"}
-            onClick={() => setPage(id)}
-          >
-            {label}
-            {id === "invoices" && showUnpaid && unpaidCount > 0 && (
-              <span
-                className="tab-badge"
-                aria-label={`${unpaidCount} unpaid ${unpaidCount === 1 ? "invoice" : "invoices"}`}
-              >
-                {unpaidCount}
-              </span>
+    <CurrentUserProvider user={user}>
+      <main>
+        <div className="topbar">
+          <span className="muted">
+            Signed in as <strong>{user.name}</strong>
+            {user.role === "read_only" && (
+              <span className="role-badge"> Read only</span>
             )}
+          </span>
+          <button
+            type="button"
+            className="link-button"
+            onClick={onSignOut}
+            disabled={signingOut}
+          >
+            {signingOut ? "Signing out…" : "Sign out"}
           </button>
-        ))}
-      </nav>
+        </div>
 
-      {/* The start screen leads with the open receivables. */}
-      {page === "products" && showUnpaid && (
-        <button
-          type="button"
-          className={
-            unpaidCount > 0 ? "unpaid-banner has-unpaid" : "unpaid-banner"
-          }
-          onClick={() => setPage("invoices")}
-        >
-          {unpaidSummary(unpaidCount)}
-          <span className="unpaid-banner-link">View invoices</span>
-        </button>
-      )}
+        <nav className="tabs" aria-label="Main navigation">
+          {PAGES.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              className={page === id ? "tab active" : "tab"}
+              onClick={() => setPage(id)}
+            >
+              {label}
+              {id === "invoices" && showUnpaid && unpaidCount > 0 && (
+                <span
+                  className="tab-badge"
+                  aria-label={`${unpaidCount} unpaid ${unpaidCount === 1 ? "invoice" : "invoices"}`}
+                >
+                  {unpaidCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
 
-      <Screen />
-    </main>
+        {/* The start screen leads with the open receivables. */}
+        {page === "products" && showUnpaid && (
+          <button
+            type="button"
+            className={
+              unpaidCount > 0 ? "unpaid-banner has-unpaid" : "unpaid-banner"
+            }
+            onClick={() => setPage("invoices")}
+          >
+            {unpaidSummary(unpaidCount)}
+            <span className="unpaid-banner-link">View invoices</span>
+          </button>
+        )}
+
+        <Screen />
+      </main>
+    </CurrentUserProvider>
   );
 }

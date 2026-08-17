@@ -5,7 +5,7 @@ import { isoDateString, isRealCalendarDate } from "../dates.js";
 import { db } from "../db/index.js";
 import { customers, invoices, orders } from "../db/schema.js";
 import { orNotFound } from "../errors.js";
-import { protectedProcedure, router } from "../trpc.js";
+import { protectedProcedure, router, writeProcedure } from "../trpc.js";
 
 /** One invoice per shipped order; unpaid until a payment date is recorded. */
 export const invoiceRouter = router({
@@ -54,7 +54,7 @@ export const invoiceRouter = router({
    * payment. The `paid_at IS NULL` guard makes this a one-time action:
    * an invoice that is already paid stays as it was first recorded.
    */
-  markPaid: protectedProcedure
+  markPaid: writeProcedure
     .input(
       z.object({
         id: z.number().int().positive(),

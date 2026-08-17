@@ -13,11 +13,21 @@ import {
  * within the application by someone who is already signed in — there is no
  * self-registration and no password recovery.
  */
+/**
+ * What a team member may do. "full" can do everything, as every team member
+ * could before roles existed. "read_only" may look at customers, products,
+ * orders and invoices but cannot create, change or remove anything, place an
+ * order or record a payment. New team members are "full" unless said
+ * otherwise, so nobody's access changes just by adding roles.
+ */
+export type UserRole = "full" | "read_only";
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  role: text("role").$type<UserRole>().notNull().default("full"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -26,7 +36,7 @@ export const users = pgTable("users", {
 export type User = typeof users.$inferSelect;
 
 /** What the rest of the application may see of a user — never the password hash. */
-export type PublicUser = Pick<User, "id" | "name" | "username">;
+export type PublicUser = Pick<User, "id" | "name" | "username" | "role">;
 
 /** A signed-in browser session, identified by a random token kept in a cookie. */
 export const sessions = pgTable("sessions", {

@@ -28,8 +28,12 @@ export async function initDb(): Promise<void> {
       "name" text NOT NULL,
       "username" text NOT NULL UNIQUE,
       "password_hash" text NOT NULL,
+      "role" text NOT NULL DEFAULT 'full',
       "created_at" timestamptz NOT NULL DEFAULT now()
     );
+    -- Upgrade databases from before roles existed: everyone already set up
+    -- keeps full access, exactly as they had before.
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "role" text NOT NULL DEFAULT 'full';
     CREATE TABLE IF NOT EXISTS "customers" (
       "id" serial PRIMARY KEY,
       "contact_name" text NOT NULL,

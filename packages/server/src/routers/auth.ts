@@ -32,7 +32,12 @@ export const authRouter = router({
         });
       }
       await issueSession(user.id, ctx.resHeaders);
-      return { id: user.id, name: user.name, username: user.username };
+      return {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        role: user.role,
+      };
     }),
   signOut: publicProcedure.mutation(async ({ ctx }) => {
     await endSession(ctx.sessionToken, ctx.resHeaders);
