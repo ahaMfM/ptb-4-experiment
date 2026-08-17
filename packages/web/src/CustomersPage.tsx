@@ -3,7 +3,14 @@ import { useState, type FormEvent } from "react";
 import type { Customer } from "server/router";
 import StatusBadge from "./StatusBadge";
 import { useTRPC } from "./trpc";
-import { formatDate, formatDateTime, formatPrice, readableError } from "./utils";
+import {
+  downloadFile,
+  formatDate,
+  formatDateTime,
+  formatPrice,
+  readableError,
+  toCsv,
+} from "./utils";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -14,6 +21,24 @@ type CustomerFormValues = {
   email: string;
   customerSince: string;
 };
+
+/**
+ * Turn a customer list into a CSV file with every stored field, e.g. to
+ * hand the complete customer data to the accountant.
+ */
+function customersToCsv(list: Customer[]): string {
+  return toCsv(
+    ["ID", "Contact person", "Company", "Address", "E-mail", "Customer since"],
+    list.map((c) => [
+      c.id,
+      c.contactName,
+      c.company,
+      c.address,
+      c.email,
+      c.customerSince,
+    ]),
+  );
+}
 
 const emptyForm: CustomerFormValues = {
   contactName: "",
@@ -330,6 +355,8 @@ export default function CustomersPage() {
   const [editing, setEditing] = useState<Customer | null>(null);
   const [deleting, setDeleting] = useState<Customer | null>(null);
   const [search, setSearch] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const trimmedSearch = search.trim();
   const customersQuery = useQuery({
@@ -353,6 +380,31 @@ export default function CustomersPage() {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     createCustomer.mutate(form);
+  };
+
+  /**
+   * Download every customer with all stored fields as a CSV file.
+   * Always exports the full list, even while a search filter is active.
+   */
+  const handleExport = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      const all = await queryClient.fetchQuery(
+        trpc.customer.list.queryOptions(undefined),
+      );
+      downloadFile(
+        `customers-${today()}.csv`,
+        customersToCsv(all),
+        "text/csv;charset=utf-8",
+      );
+    } catch (err) {
+      setExportError(
+        readableError(err instanceof Error ? err.message : String(err)),
+      );
+    } finally {
+      setExporting(false);
+    }
   };
 
   const customers = customersQuery.data ?? [];
@@ -389,7 +441,18 @@ export default function CustomersPage() {
             placeholder="Search by name or company…"
             aria-label="Search customers by name"
           />
+          <button
+            type="button"
+            className="secondary"
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? "Exporting…" : "Export CSV"}
+          </button>
         </div>
+        {exportError && (
+          <p className="error">Could not export customers: {exportError}</p>
+        )}
         {customersQuery.isLoading && <p className="muted">Loading…</p>}
         {customersQuery.isError && (
           <p className="error">Could not load customers: {customersQuery.error.message}</p>
