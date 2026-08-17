@@ -3,7 +3,11 @@ function formatStatus(status: string): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
-/** Colored pill showing an order's lifecycle status (open / shipped / cancelled). */
+/**
+ * Colored pill showing a lifecycle status: an order's (open / shipped /
+ * cancelled) or an invoice's (paid / unpaid). The colour comes from the
+ * `status-<status>` class, so a badge and its styling always agree.
+ */
 export default function StatusBadge({ status }: { status: string }) {
   return (
     <span className={`status-badge status-${status}`}>{formatStatus(status)}</span>

@@ -1,15 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { PublicUser } from "server/router";
-import CustomersPage from "./CustomersPage";
-import InvoicesPage from "./InvoicesPage";
-import OrdersPage from "./OrdersPage";
-import ProductsPage from "./ProductsPage";
-import SignInPage from "./SignInPage";
-import TeamPage from "./TeamPage";
+import CustomersPage from "./pages/customers/CustomersPage";
+import InvoicesPage from "./pages/InvoicesPage";
+import OrdersPage from "./pages/orders/OrdersPage";
+import ProductsPage from "./pages/products/ProductsPage";
+import SignInPage from "./pages/SignInPage";
+import TeamPage from "./pages/TeamPage";
 import { useTRPC } from "./trpc";
 
-type Page = "products" | "customers" | "orders" | "invoices" | "team";
+/**
+ * The screens the application is made of, in the order they appear in the
+ * navigation. Adding one here is all it takes: the tabs and what they show
+ * both come from this list.
+ */
+const PAGES = [
+  { id: "products", label: "Products", Component: ProductsPage },
+  { id: "customers", label: "Customers", Component: CustomersPage },
+  { id: "orders", label: "Orders", Component: OrdersPage },
+  { id: "invoices", label: "Invoices", Component: InvoicesPage },
+  { id: "team", label: "Team", Component: TeamPage },
+] as const;
+
+type Page = (typeof PAGES)[number]["id"];
+
+/** The screen shown first after signing in. */
+const HOME: Page = "products";
 
 /**
  * Everyone signs in as themselves before using the application, so the app
@@ -75,10 +91,14 @@ function BackOffice({
   signingOut: boolean;
 }) {
   const trpc = useTRPC();
-  const [page, setPage] = useState<Page>("products");
+  const [page, setPage] = useState<Page>(HOME);
 
+  // Open receivables are visible from anywhere: as a count on the Invoices
+  // tab, and spelled out on the start screen.
   const unpaidQuery = useQuery(trpc.invoice.unpaidCount.queryOptions());
   const unpaidCount = unpaidQuery.data ?? 0;
+
+  const current = PAGES.find((entry) => entry.id === page)!;
 
   return (
     <main>
@@ -97,52 +117,27 @@ function BackOffice({
       </div>
 
       <nav className="tabs" aria-label="Main navigation">
-        <button
-          type="button"
-          className={page === "products" ? "tab active" : "tab"}
-          onClick={() => setPage("products")}
-        >
-          Products
-        </button>
-        <button
-          type="button"
-          className={page === "customers" ? "tab active" : "tab"}
-          onClick={() => setPage("customers")}
-        >
-          Customers
-        </button>
-        <button
-          type="button"
-          className={page === "orders" ? "tab active" : "tab"}
-          onClick={() => setPage("orders")}
-        >
-          Orders
-        </button>
-        <button
-          type="button"
-          className={page === "invoices" ? "tab active" : "tab"}
-          onClick={() => setPage("invoices")}
-        >
-          Invoices
-          {unpaidQuery.isSuccess && unpaidCount > 0 && (
-            <span
-              className="tab-badge"
-              aria-label={`${unpaidCount} unpaid ${unpaidCount === 1 ? "invoice" : "invoices"}`}
-            >
-              {unpaidCount}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          className={page === "team" ? "tab active" : "tab"}
-          onClick={() => setPage("team")}
-        >
-          Team
-        </button>
+        {PAGES.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            className={page === entry.id ? "tab active" : "tab"}
+            onClick={() => setPage(entry.id)}
+          >
+            {entry.label}
+            {entry.id === "invoices" && unpaidQuery.isSuccess && unpaidCount > 0 && (
+              <span
+                className="tab-badge"
+                aria-label={`${unpaidCount} unpaid ${unpaidCount === 1 ? "invoice" : "invoices"}`}
+              >
+                {unpaidCount}
+              </span>
+            )}
+          </button>
+        ))}
       </nav>
 
-      {page === "products" && unpaidQuery.isSuccess && (
+      {page === HOME && unpaidQuery.isSuccess && (
         <button
           type="button"
           className={
@@ -159,11 +154,7 @@ function BackOffice({
         </button>
       )}
 
-      {page === "products" && <ProductsPage />}
-      {page === "customers" && <CustomersPage />}
-      {page === "orders" && <OrdersPage />}
-      {page === "invoices" && <InvoicesPage />}
-      {page === "team" && <TeamPage />}
+      <current.Component />
     </main>
   );
 }

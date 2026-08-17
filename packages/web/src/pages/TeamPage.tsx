@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { useTRPC } from "./trpc";
-import { formatDateTime, readableError } from "./utils";
+import { readableError } from "../lib/errors";
+import { formatDateTime } from "../lib/format";
+import { useTRPC } from "../trpc";
 
 type TeamFormValues = {
   name: string;

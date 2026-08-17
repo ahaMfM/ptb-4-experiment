@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { useTRPC } from "./trpc";
-import { readableError } from "./utils";
+import { readableError } from "../lib/errors";
+import { useTRPC } from "../trpc";
 
 /**
  * Shown until someone has signed in. Everyone signs in as themselves, so it

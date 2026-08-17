@@ -1,14 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import StatusBadge from "./StatusBadge";
-import { useTRPC } from "./trpc";
-import { formatDate, formatDateTime, formatPrice, readableError } from "./utils";
+import { readableError } from "../lib/errors";
+import {
+  formatDate,
+  formatDateTime,
+  formatPrice,
+  todayLocal,
+} from "../lib/format";
+import { useTRPC } from "../trpc";
+import StatusBadge from "../ui/StatusBadge";
 
-/** Today's date in the user's timezone as YYYY-MM-DD, for the date input. */
-function todayIso(): string {
-  return new Intl.DateTimeFormat("en-CA").format(new Date());
-}
-
+/**
+ * Recording a payment against one invoice. Defaults to today and refuses a
+ * date in the future; the server has the last word on both.
+ */
 function RecordPaymentForm({
   invoiceId,
   onDone,
@@ -18,7 +23,7 @@ function RecordPaymentForm({
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const [paidAt, setPaidAt] = useState(todayIso());
+  const [paidAt, setPaidAt] = useState(todayLocal());
 
   const markPaid = useMutation(
     trpc.invoice.markPaid.mutationOptions({
@@ -44,7 +49,7 @@ function RecordPaymentForm({
         <input
           type="date"
           value={paidAt}
-          max={todayIso()}
+          max={todayLocal()}
           onChange={(e) => setPaidAt(e.target.value)}
           required
         />
@@ -59,6 +64,10 @@ function RecordPaymentForm({
   );
 }
 
+/**
+ * Receivables: what has been invoiced, what is still outstanding, and
+ * recording payments as they come in.
+ */
 export default function InvoicesPage() {
   const trpc = useTRPC();
   const [unpaidOnly, setUnpaidOnly] = useState(false);

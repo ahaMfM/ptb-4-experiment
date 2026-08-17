@@ -9,6 +9,19 @@ import {
 } from "drizzle-orm/pg-core";
 
 /**
+ * How the data is stored. These table definitions are internal to the feature
+ * modules that own them: the shapes the rest of the application (and the web
+ * client) sees are declared by those modules, not derived from here.
+ *
+ * Table ownership:
+ *   users, sessions  → modules/team.ts, sessions.ts
+ *   customers        → modules/customers.ts
+ *   products         → modules/catalog.ts
+ *   orders, items    → modules/orders.ts
+ *   invoices         → modules/invoices.ts
+ */
+
+/**
  * The people on the team who use the application. Accounts are set up from
  * within the application by someone who is already signed in — there is no
  * self-registration and no password recovery.
@@ -23,11 +36,6 @@ export const users = pgTable("users", {
     .defaultNow(),
 });
 
-export type User = typeof users.$inferSelect;
-
-/** What the rest of the application may see of a user — never the password hash. */
-export type PublicUser = Pick<User, "id" | "name" | "username">;
-
 /** A signed-in browser session, identified by a random token kept in a cookie. */
 export const sessions = pgTable("sessions", {
   token: text("token").primaryKey(),
@@ -39,8 +47,6 @@ export const sessions = pgTable("sessions", {
     .notNull()
     .defaultNow(),
 });
-
-export type Session = typeof sessions.$inferSelect;
 
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
@@ -57,8 +63,6 @@ export const customers = pgTable("customers", {
   createdAt: timestamp("created_at", { withTimezone: true }),
 });
 
-export type Customer = typeof customers.$inferSelect;
-
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -70,9 +74,11 @@ export const products = pgTable("products", {
   stock: integer("stock").notNull(),
 });
 
-export type Product = typeof products.$inferSelect;
-
-/** Lifecycle of an order. Newly placed orders start out as "open". */
+/**
+ * Lifecycle of an order. Newly placed orders start out as "open". These are
+ * the values stored in `orders.status`, so they live with the schema; the
+ * transitions between them are owned by modules/orders.ts.
+ */
 export const ORDER_STATUSES = ["open", "shipped", "completed", "cancelled"] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
@@ -92,8 +98,6 @@ export const orders = pgTable("orders", {
     .defaultNow(),
 });
 
-export type Order = typeof orders.$inferSelect;
-
 export const orderItems = pgTable("order_items", {
   id: serial("id").primaryKey(),
   orderId: integer("order_id")
@@ -106,8 +110,6 @@ export const orderItems = pgTable("order_items", {
   /** Price per unit at the time the order was placed (prices may change later). */
   unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
 });
-
-export type OrderItem = typeof orderItems.$inferSelect;
 
 /**
  * One invoice per shipped order, created automatically when the order is
@@ -128,5 +130,3 @@ export const invoices = pgTable("invoices", {
   /** Date the customer paid; null while the invoice is unpaid. */
   paidAt: date("paid_at"),
 });
-
-export type Invoice = typeof invoices.$inferSelect;

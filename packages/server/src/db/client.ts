@@ -3,8 +3,13 @@ import { drizzle } from "drizzle-orm/pglite";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { hashPassword } from "../password.js";
 import * as schema from "./schema.js";
+
+/**
+ * The embedded database. Everything that knows about tables and columns lives
+ * in `db/` and in the feature modules under `modules/` — nothing above them
+ * touches `db` or `schema` directly.
+ */
 
 const dataDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -17,7 +22,22 @@ const client = new PGlite(dataDir);
 
 export const db = drizzle(client, { schema });
 
-/** Create the schema on startup (embedded database, no external migration step). */
+export type Db = typeof db;
+
+/** The handle a `db.transaction(…)` callback receives. */
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+/**
+ * Anything queries can run against. Helpers shared between a plain call and a
+ * call inside a transaction take this, so the caller decides the transaction.
+ */
+export type Queryable = Db | Tx;
+
+/**
+ * Create the schema on startup (embedded database, no external migration
+ * step) and bring databases from earlier versions up to date. Must run before
+ * anything queries the database.
+ */
 export async function initDb(): Promise<void> {
   await client.exec(`
     CREATE TABLE IF NOT EXISTS "users" (
@@ -83,29 +103,4 @@ export async function initDb(): Promise<void> {
     -- Sessions that ran out are worthless; sweep them on startup.
     DELETE FROM "sessions" WHERE "expires_at" < now();
   `);
-
-  await seedStarterUser();
-}
-
-/**
- * The team sets its people up from within the application, but somebody has
- * to be able to sign in first. When there are no users at all, create a
- * starter account and say so on the console.
- */
-async function seedStarterUser(): Promise<void> {
-  const existing = await db
-    .select({ id: schema.users.id })
-    .from(schema.users)
-    .limit(1);
-  if (existing.length > 0) return;
-
-  await db.insert(schema.users).values({
-    name: "Administrator",
-    username: "admin",
-    passwordHash: hashPassword("admin"),
-  });
-  console.log(
-    'No team members found — created a starter account (username "admin", password "admin"). ' +
-      "Sign in with it and add your team members on the Team page.",
-  );
 }

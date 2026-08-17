@@ -1,8 +1,16 @@
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
-import { db } from "./db/index.js";
-import { sessions, users, type PublicUser } from "./db/schema.js";
+import { db } from "./db/client.js";
+import { sessions, users } from "./db/schema.js";
+import type { PublicUser } from "./modules/team.js";
+
+/**
+ * Signed-in sessions. Everything about how a session is represented — the
+ * cookie name, the token, its lifetime, the `sessions` table — stays in here.
+ * Callers only ever see the resolved user in the request context and call
+ * `issueSession` / `endSession` to start and end one.
+ */
 
 const SESSION_COOKIE = "session";
 const SESSION_DAYS = 30;
@@ -29,7 +37,10 @@ function readSessionToken(req: Request): string | null {
   return null;
 }
 
-/** Resolve the session cookie (if any) to the signed-in user for this request. */
+/**
+ * Resolve the session cookie (if any) to the signed-in user for this request.
+ * An expired session counts as "nobody signed in" and is forgotten on the way.
+ */
 export async function createContext({
   req,
   resHeaders,
