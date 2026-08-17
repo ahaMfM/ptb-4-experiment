@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import RecordedBy from "./RecordedBy";
 import StatusBadge from "./StatusBadge";
 import { useTRPC } from "./trpc";
 import { formatDate, formatDateTime, formatPrice, readableError } from "./utils";
@@ -77,10 +78,10 @@ function OrderDetailDialog({
 
         {order && (
           <>
+            <p className="muted">Placed on {formatDateTime(order.createdAt)}</p>
             <p className="muted">
-              Placed on {formatDateTime(order.createdAt)}
-              {/* Who recorded the order — unknown for old entries. */}
-              {order.recordedBy && <> · recorded by {order.recordedBy}</>}
+              <span className="detail-label">Recorded by</span>{" "}
+              <RecordedBy recordedBy={order.recordedBy} createdAt={order.createdAt} />
             </p>
 
             <h3>Customer</h3>
@@ -494,8 +495,7 @@ export default function OrdersPage() {
                     </td>
                     <td>{formatDateTime(order.createdAt)}</td>
                     <td>
-                      {/* Unknown for orders from before everyone signed in. */}
-                      {order.recordedBy ?? <span className="muted">—</span>}
+                      <RecordedBy recordedBy={order.recordedBy} createdAt={order.createdAt} />
                     </td>
                     <td>
                       {order.items

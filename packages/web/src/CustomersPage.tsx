@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import type { CustomerRecord } from "server/router";
+import RecordedBy from "./RecordedBy";
 import StatusBadge from "./StatusBadge";
 import { useTRPC } from "./trpc";
 import {
@@ -179,20 +180,7 @@ function CustomerDetailDialog({
           </div>
           <div>
             <span className="detail-label">Recorded by</span>
-            {customer.recordedBy ? (
-              <>
-                {customer.recordedBy}
-                {customer.createdAt && (
-                  <span className="muted">
-                    {" "}
-                    on {formatDateTime(customer.createdAt)}
-                  </span>
-                )}
-              </>
-            ) : (
-              // Entries from before everyone signed in: we do not know.
-              <span className="muted">—</span>
-            )}
+            <RecordedBy recordedBy={customer.recordedBy} createdAt={customer.createdAt} />
           </div>
         </div>
 
@@ -228,7 +216,7 @@ function CustomerDetailDialog({
                     <td>#{order.id}</td>
                     <td>{formatDateTime(order.createdAt)}</td>
                     <td>
-                      {order.recordedBy ?? <span className="muted">—</span>}
+                      <RecordedBy recordedBy={order.recordedBy} createdAt={order.createdAt} />
                     </td>
                     <td>
                       {order.items
@@ -526,22 +514,7 @@ export default function CustomersPage() {
                     </td>
                     <td>{formatDate(c.customerSince)}</td>
                     <td>
-                      {c.recordedBy ? (
-                        <>
-                          {c.recordedBy}
-                          {c.createdAt && (
-                            <>
-                              <br />
-                              <span className="muted">
-                                {formatDateTime(c.createdAt)}
-                              </span>
-                            </>
-                          )}
-                        </>
-                      ) : (
-                        // Entries from before everyone signed in: unknown.
-                        <span className="muted">—</span>
-                      )}
+                      <RecordedBy recordedBy={c.recordedBy} createdAt={c.createdAt} />
                     </td>
                     <td>
                       <span className="row-actions">
