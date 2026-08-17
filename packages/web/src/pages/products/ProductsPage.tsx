@@ -12,6 +12,15 @@ import {
   toProductInput,
 } from "./ProductForm";
 
+type ViewMode = "grid" | "compact";
+
+const VIEW_MODE_KEY = "products.viewMode";
+
+function loadViewMode(): ViewMode {
+  const stored = localStorage.getItem(VIEW_MODE_KEY);
+  return stored === "compact" ? "compact" : "grid";
+}
+
 /** The catalog: what is on offer, at what price, and how much of it is left. */
 export default function ProductsPage() {
   const trpc = useTRPC();
@@ -23,6 +32,13 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState<Product | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
+
+  const toggleViewMode = () => {
+    const next = viewMode === "grid" ? "compact" : "grid";
+    setViewMode(next);
+    localStorage.setItem(VIEW_MODE_KEY, next);
+  };
 
   const productsQuery = useQuery(trpc.product.list.queryOptions());
 
@@ -71,10 +87,15 @@ export default function ProductsPage() {
       </section>
 
       <section className="card">
-        <h2>
-          Our products
-          {productsQuery.isSuccess && <span className="count"> ({products.length})</span>}
-        </h2>
+        <div className="section-header">
+          <h2>
+            Our products
+            {productsQuery.isSuccess && <span className="count"> ({products.length})</span>}
+          </h2>
+          <button type="button" className="link-button" onClick={toggleViewMode}>
+            {viewMode === "grid" ? "Switch to compact view" : "Switch to full view"}
+          </button>
+        </div>
         {productsQuery.isLoading && <p className="muted">Loading…</p>}
         {productsQuery.isError && (
           <p className="error">Could not load products: {productsQuery.error.message}</p>
@@ -82,7 +103,7 @@ export default function ProductsPage() {
         {productsQuery.isSuccess && products.length === 0 && (
           <p className="muted">No products yet. Add your first one above.</p>
         )}
-        {products.length > 0 && (
+        {products.length > 0 && viewMode === "grid" && (
           <div className="product-grid">
             {products.map((p) => (
               <article key={p.id} className="product-card">
@@ -118,6 +139,30 @@ export default function ProductsPage() {
                       </button>
                     </span>
                   </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+        {products.length > 0 && viewMode === "compact" && (
+          <div className="product-grid product-grid-compact">
+            {products.map((p) => (
+              <article
+                key={p.id}
+                className="product-card product-card-compact"
+                onClick={() => setEditing(p)}
+              >
+                <img className="product-image-compact" src={p.image} alt={p.name} />
+                <div className="product-body-compact">
+                  <span className="product-name-compact">{p.name}</span>
+                  <span className="product-price">{formatPrice(p.price)}</span>
+                  <span
+                    className={
+                      p.stock > 0 ? "stock-badge" : "stock-badge out-of-stock"
+                    }
+                  >
+                    {p.stock > 0 ? `${p.stock} in stock` : "Out of stock"}
+                  </span>
                 </div>
               </article>
             ))}
