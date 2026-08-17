@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import QueryFeedback from "../components/QueryFeedback";
+import RecordedBy from "../components/RecordedBy";
 import StatusBadge from "../components/StatusBadge";
 import { readableError } from "../lib/errors";
 import {
@@ -97,8 +98,7 @@ export default function OrdersPage() {
                     </td>
                     <td>{formatDateTime(order.createdAt)}</td>
                     <td>
-                      {/* Unknown for orders from before everyone signed in. */}
-                      {order.recordedBy ?? <span className="muted">—</span>}
+                      <RecordedBy name={order.recordedBy} at={order.createdAt} />
                     </td>
                     <td>{formatOrderContents(order.items)}</td>
                     <td>

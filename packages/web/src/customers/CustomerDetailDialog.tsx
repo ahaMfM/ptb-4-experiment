@@ -2,13 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import type { CustomerRecord } from "server/router";
 import Modal from "../components/Modal";
 import QueryFeedback from "../components/QueryFeedback";
+import RecordedBy from "../components/RecordedBy";
 import StatusBadge from "../components/StatusBadge";
-import {
-  formatDate,
-  formatDateTime,
-  formatOrderContents,
-  formatPrice,
-} from "../lib/format";
+import { formatDate, formatDateTime, formatOrderContents, formatPrice } from "../lib/format";
 import { useTRPC } from "../trpc";
 
 /**
@@ -58,20 +54,7 @@ export default function CustomerDetailDialog({
         </div>
         <div>
           <span className="detail-label">Recorded by</span>
-          {customer.recordedBy ? (
-            <>
-              {customer.recordedBy}
-              {customer.createdAt && (
-                <span className="muted">
-                  {" "}
-                  on {formatDateTime(customer.createdAt)}
-                </span>
-              )}
-            </>
-          ) : (
-            // Entries from before everyone signed in: we do not know.
-            <span className="muted">—</span>
-          )}
+          <RecordedBy name={customer.recordedBy} at={customer.createdAt} />
         </div>
       </div>
 
@@ -103,7 +86,9 @@ export default function CustomerDetailDialog({
                 <tr key={order.id}>
                   <td>#{order.id}</td>
                   <td>{formatDateTime(order.createdAt)}</td>
-                  <td>{order.recordedBy ?? <span className="muted">—</span>}</td>
+                  <td>
+                    <RecordedBy name={order.recordedBy} at={order.createdAt} />
+                  </td>
                   <td>{formatOrderContents(order.items)}</td>
                   <td>
                     <StatusBadge status={order.status} />

@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import Modal from "../components/Modal";
 import QueryFeedback from "../components/QueryFeedback";
+import RecordedBy from "../components/RecordedBy";
 import StatusBadge from "../components/StatusBadge";
 import { readableError } from "../lib/errors";
-import { formatDate, formatDateTime, formatPrice } from "../lib/format";
+import { formatDate, formatPrice } from "../lib/format";
 import { useTRPC } from "../trpc";
 import {
   cancellationMessage,
@@ -40,11 +41,13 @@ export default function OrderDetailDialog({
 
       {order && (
         <>
-          <p className="muted">
-            Placed on {formatDateTime(order.createdAt)}
-            {/* Who recorded the order — unknown for old entries. */}
-            {order.recordedBy && <> · recorded by {order.recordedBy}</>}
-          </p>
+          <h3>Order</h3>
+          <div className="detail-grid">
+            <div>
+              <span className="detail-label">Recorded by</span>
+              <RecordedBy name={order.recordedBy} at={order.createdAt} />
+            </div>
+          </div>
 
           <h3>Customer</h3>
           <div className="detail-grid">
