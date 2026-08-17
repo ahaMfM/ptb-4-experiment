@@ -129,7 +129,8 @@ const userInput = z.object({
 });
 
 const customerInput = z.object({
-  contactName: z.string().trim().min(1, "Contact name is required"),
+  firstName: z.string().trim().min(1, "First name is required"),
+  familyName: z.string().trim().min(1, "Family name is required"),
   company: z.string().trim().min(1, "Company is required"),
   address: z.string().trim().min(1, "Address is required"),
   email: z.email("A valid e-mail address is required"),
@@ -230,7 +231,8 @@ export const appRouter = t.router({
         const rows = await db
           .select({
             id: customers.id,
-            contactName: customers.contactName,
+            firstName: customers.firstName,
+            familyName: customers.familyName,
             company: customers.company,
             address: customers.address,
             email: customers.email,
@@ -244,7 +246,8 @@ export const appRouter = t.router({
           .where(
             pattern
               ? or(
-                  ilike(customers.contactName, pattern),
+                  ilike(customers.firstName, pattern),
+                  ilike(customers.familyName, pattern),
                   ilike(customers.company, pattern),
                 )
               : undefined,
@@ -442,7 +445,8 @@ export const appRouter = t.router({
           createdAt: orders.createdAt,
           status: orders.status,
           customerId: orders.customerId,
-          contactName: customers.contactName,
+          firstName: customers.firstName,
+          familyName: customers.familyName,
           company: customers.company,
           // Who recorded the order; null for old entries.
           recordedBy: users.name,
@@ -477,7 +481,8 @@ export const appRouter = t.router({
           createdAt: order.createdAt.toISOString(),
           status: order.status,
           customerId: order.customerId,
-          contactName: order.contactName,
+          firstName: order.firstName,
+          familyName: order.familyName,
           company: order.company,
           recordedBy: order.recordedBy,
           items,
@@ -498,7 +503,8 @@ export const appRouter = t.router({
             recordedBy: users.name,
             customer: {
               id: customers.id,
-              contactName: customers.contactName,
+              firstName: customers.firstName,
+              familyName: customers.familyName,
               company: customers.company,
               address: customers.address,
               email: customers.email,
@@ -766,7 +772,8 @@ export const appRouter = t.router({
             issuedAt: invoices.issuedAt,
             paidAt: invoices.paidAt,
             customerId: customers.id,
-            contactName: customers.contactName,
+            firstName: customers.firstName,
+            familyName: customers.familyName,
             company: customers.company,
           })
           .from(invoices)

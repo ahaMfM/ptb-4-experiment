@@ -91,7 +91,7 @@ function OrderDetailDialog({
               </div>
               <div>
                 <span className="detail-label">Contact person</span>
-                {order.customer.contactName}
+                {order.customer.firstName} {order.customer.familyName}
               </div>
               <div>
                 <span className="detail-label">E-mail</span>
@@ -330,7 +330,7 @@ export default function OrdersPage() {
                 <option value="">Choose a customer…</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.company} — {c.contactName}
+                    {c.company} — {c.firstName} {c.familyName}
                   </option>
                 ))}
               </select>
@@ -490,7 +490,9 @@ export default function OrdersPage() {
                     <td>
                       {order.company}
                       <br />
-                      <span className="muted">{order.contactName}</span>
+                      <span className="muted">
+                        {order.firstName} {order.familyName}
+                      </span>
                     </td>
                     <td>{formatDateTime(order.createdAt)}</td>
                     <td>

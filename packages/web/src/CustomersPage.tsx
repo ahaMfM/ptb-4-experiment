@@ -15,7 +15,8 @@ import {
 const today = () => new Date().toISOString().slice(0, 10);
 
 type CustomerFormValues = {
-  contactName: string;
+  firstName: string;
+  familyName: string;
   company: string;
   address: string;
   email: string;
@@ -30,7 +31,8 @@ function customersToCsv(list: CustomerRecord[]): string {
   return toCsv(
     [
       "ID",
-      "Contact person",
+      "First name",
+      "Family name",
       "Company",
       "Address",
       "E-mail",
@@ -40,7 +42,8 @@ function customersToCsv(list: CustomerRecord[]): string {
     ],
     list.map((c) => [
       c.id,
-      c.contactName,
+      c.firstName,
+      c.familyName,
       c.company,
       c.address,
       c.email,
@@ -53,7 +56,8 @@ function customersToCsv(list: CustomerRecord[]): string {
 }
 
 const emptyForm: CustomerFormValues = {
-  contactName: "",
+  firstName: "",
+  familyName: "",
   company: "",
   address: "",
   email: "",
@@ -75,11 +79,20 @@ function CustomerFields({
   return (
     <div className="grid">
       <label>
-        Contact person
+        First name
         <input
-          value={form.contactName}
-          onChange={set("contactName")}
-          placeholder="Jane Doe"
+          value={form.firstName}
+          onChange={set("firstName")}
+          placeholder="Jane"
+          required
+        />
+      </label>
+      <label>
+        Family name
+        <input
+          value={form.familyName}
+          onChange={set("familyName")}
+          placeholder="Doe"
           required
         />
       </label>
@@ -153,7 +166,7 @@ function CustomerDetailDialog({
         className="modal modal-wide card"
         role="dialog"
         aria-modal="true"
-        aria-label={`Customer ${customer.contactName}`}
+        aria-label={`Customer ${customer.firstName} ${customer.familyName}`}
       >
         <header className="order-header">
           <h2>{customer.company}</h2>
@@ -162,8 +175,12 @@ function CustomerDetailDialog({
 
         <div className="detail-grid">
           <div>
-            <span className="detail-label">Contact person</span>
-            {customer.contactName}
+            <span className="detail-label">First name</span>
+            {customer.firstName}
+          </div>
+          <div>
+            <span className="detail-label">Family name</span>
+            {customer.familyName}
           </div>
           <div>
             <span className="detail-label">E-mail</span>
@@ -294,7 +311,7 @@ function DeleteCustomerDialog({
         <p>
           This will permanently remove{" "}
           <strong>
-            {customer.contactName} ({customer.company})
+            {customer.firstName} {customer.familyName} ({customer.company})
           </strong>{" "}
           from the customer list. This cannot be undone.
         </p>
@@ -327,7 +344,8 @@ function EditCustomerDialog({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<CustomerFormValues>({
-    contactName: customer.contactName,
+    firstName: customer.firstName,
+    familyName: customer.familyName,
     company: customer.company,
     address: customer.address,
     email: customer.email,
@@ -502,7 +520,8 @@ export default function CustomersPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Contact person</th>
+                  <th>First name</th>
+                  <th>Family name</th>
                   <th>Company</th>
                   <th>Address</th>
                   <th>E-mail</th>
@@ -516,7 +535,8 @@ export default function CustomersPage() {
               <tbody>
                 {customers.map((c) => (
                   <tr key={c.id} className="clickable" onClick={() => setViewing(c)}>
-                    <td>{c.contactName}</td>
+                    <td>{c.firstName}</td>
+                    <td>{c.familyName}</td>
                     <td>{c.company}</td>
                     <td className="address">{c.address}</td>
                     <td>

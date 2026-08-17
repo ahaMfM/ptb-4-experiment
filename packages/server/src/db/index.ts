@@ -29,7 +29,8 @@ export async function initDb(): Promise<void> {
     );
     CREATE TABLE IF NOT EXISTS "customers" (
       "id" serial PRIMARY KEY,
-      "contact_name" text NOT NULL,
+      "first_name" text NOT NULL,
+      "family_name" text NOT NULL,
       "company" text NOT NULL,
       "address" text NOT NULL,
       "email" text NOT NULL,
@@ -60,6 +61,26 @@ export async function initDb(): Promise<void> {
     ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "created_by_id" integer REFERENCES "users"("id");
     ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "created_by_id" integer REFERENCES "users"("id");
     ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "created_at" timestamptz;
+    -- Upgrade databases that still store the contact as one combined name:
+    -- split it into first/family name so we can address people properly
+    -- ("Dear Ms Doe" instead of "Dear Jane Doe").
+    DO $$ BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'contact_name'
+      ) THEN
+        ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "first_name" text;
+        ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "family_name" text;
+        UPDATE "customers" SET
+          "first_name" = split_part("contact_name", ' ', 1),
+          "family_name" = trim(substring("contact_name" from position(' ' in "contact_name")))
+        WHERE "first_name" IS NULL;
+        UPDATE "customers" SET "family_name" = '' WHERE "family_name" IS NULL;
+        ALTER TABLE "customers" ALTER COLUMN "first_name" SET NOT NULL;
+        ALTER TABLE "customers" ALTER COLUMN "family_name" SET NOT NULL;
+        ALTER TABLE "customers" DROP COLUMN "contact_name";
+      END IF;
+    END $$;
     CREATE TABLE IF NOT EXISTS "order_items" (
       "id" serial PRIMARY KEY,
       "order_id" integer NOT NULL REFERENCES "orders"("id") ON DELETE CASCADE,
