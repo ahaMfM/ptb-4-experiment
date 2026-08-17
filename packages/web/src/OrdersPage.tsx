@@ -312,8 +312,20 @@ export default function OrdersPage() {
 
       <section className="card">
         <h2>Place an order</h2>
+        {customersQuery.isLoading && <p className="muted">Loading customers…</p>}
+        {customersQuery.isError && (
+          <p className="error">
+            Could not load customers: {readableError(customersQuery.error.message)}
+          </p>
+        )}
         {customersQuery.isSuccess && customers.length === 0 && (
           <p className="muted">Add a customer first to place an order.</p>
+        )}
+        {productsQuery.isLoading && <p className="muted">Loading products…</p>}
+        {productsQuery.isError && (
+          <p className="error">
+            Could not load products: {readableError(productsQuery.error.message)}
+          </p>
         )}
         {productsQuery.isSuccess && products.length === 0 && (
           <p className="muted">Add a product first to place an order.</p>
@@ -325,9 +337,16 @@ export default function OrdersPage() {
               <select
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
+                disabled={customersQuery.isLoading || customersQuery.isError}
                 required
               >
-                <option value="">Choose a customer…</option>
+                <option value="">
+                  {customersQuery.isLoading
+                    ? "Loading customers…"
+                    : customersQuery.isError
+                      ? "Customers could not be loaded"
+                      : "Choose a customer…"}
+                </option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.company} — {c.contactName}
@@ -349,9 +368,16 @@ export default function OrdersPage() {
                       onChange={(e) =>
                         setLine(index, { productId: e.target.value })
                       }
+                      disabled={productsQuery.isLoading || productsQuery.isError}
                       required
                     >
-                      <option value="">Choose a product…</option>
+                      <option value="">
+                        {productsQuery.isLoading
+                          ? "Loading products…"
+                          : productsQuery.isError
+                            ? "Products could not be loaded"
+                            : "Choose a product…"}
+                      </option>
                       {products.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name} ({formatPrice(p.price)}, {p.stock} in stock)
