@@ -25,7 +25,8 @@ export type CustomerRecord = Omit<Customer, "createdById" | "createdAt"> & {
 };
 
 const customerInput = z.object({
-  contactName: z.string().trim().min(1, "Contact name is required"),
+  firstName: z.string().trim().min(1, "First name is required"),
+  familyName: z.string().trim().min(1, "Family name is required"),
   company: z.string().trim().min(1, "Company is required"),
   address: z.string().trim().min(1, "Address is required"),
   email: z.email("A valid e-mail address is required"),
@@ -53,7 +54,8 @@ export const customerRouter = router({
       const rows = await db
         .select({
           id: customers.id,
-          contactName: customers.contactName,
+          firstName: customers.firstName,
+          familyName: customers.familyName,
           company: customers.company,
           address: customers.address,
           email: customers.email,
@@ -67,7 +69,8 @@ export const customerRouter = router({
         .where(
           term
             ? or(
-                ilike(customers.contactName, likePattern(term)),
+                ilike(customers.firstName, likePattern(term)),
+                ilike(customers.familyName, likePattern(term)),
                 ilike(customers.company, likePattern(term)),
               )
             : undefined,

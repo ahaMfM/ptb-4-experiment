@@ -137,7 +137,8 @@ export default function CustomersPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Contact person</th>
+                  <th>First name</th>
+                  <th>Family name</th>
                   <th>Company</th>
                   <th>Address</th>
                   <th>E-mail</th>
@@ -155,7 +156,8 @@ export default function CustomersPage() {
                     className="clickable"
                     onClick={() => setViewing(customer)}
                   >
-                    <td>{customer.contactName}</td>
+                    <td>{customer.firstName}</td>
+                    <td>{customer.familyName}</td>
                     <td>{customer.company}</td>
                     <td className="address">{customer.address}</td>
                     <td>

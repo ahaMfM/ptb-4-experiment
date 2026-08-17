@@ -30,7 +30,7 @@ export default function CustomerDetailDialog({
 
   return (
     <Modal
-      ariaLabel={`Customer ${customer.contactName}`}
+      ariaLabel={`Customer ${customer.firstName} ${customer.familyName}`}
       wide
       onClose={onClose}
     >
@@ -41,8 +41,12 @@ export default function CustomerDetailDialog({
 
       <div className="detail-grid">
         <div>
-          <span className="detail-label">Contact person</span>
-          {customer.contactName}
+          <span className="detail-label">First name</span>
+          {customer.firstName}
+        </div>
+        <div>
+          <span className="detail-label">Family name</span>
+          {customer.familyName}
         </div>
         <div>
           <span className="detail-label">E-mail</span>

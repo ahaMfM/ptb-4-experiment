@@ -36,7 +36,8 @@ export const invoiceRouter = router({
           issuedAt: invoices.issuedAt,
           paidAt: invoices.paidAt,
           customerId: customers.id,
-          contactName: customers.contactName,
+          firstName: customers.firstName,
+          familyName: customers.familyName,
           company: customers.company,
         })
         .from(invoices)

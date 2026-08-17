@@ -18,7 +18,8 @@ export default function EditCustomerDialog({
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<CustomerFormValues>({
-    contactName: customer.contactName,
+    firstName: customer.firstName,
+    familyName: customer.familyName,
     company: customer.company,
     address: customer.address,
     email: customer.email,

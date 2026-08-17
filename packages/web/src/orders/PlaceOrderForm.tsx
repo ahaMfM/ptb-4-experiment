@@ -179,7 +179,7 @@ export default function PlaceOrderForm() {
               <option value="">Choose a customer…</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
-                  {customer.company} — {customer.contactName}
+                  {customer.company} — {customer.firstName} {customer.familyName}
                 </option>
               ))}
             </select>

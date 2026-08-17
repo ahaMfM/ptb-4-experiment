@@ -9,7 +9,8 @@ export function customersToCsv(customers: CustomerRecord[]): string {
   return toCsv(
     [
       "ID",
-      "Contact person",
+      "First name",
+      "Family name",
       "Company",
       "Address",
       "E-mail",
@@ -19,7 +20,8 @@ export function customersToCsv(customers: CustomerRecord[]): string {
     ],
     customers.map((customer) => [
       customer.id,
-      customer.contactName,
+      customer.firstName,
+      customer.familyName,
       customer.company,
       customer.address,
       customer.email,

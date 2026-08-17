@@ -32,7 +32,8 @@ export async function initDb(): Promise<void> {
     );
     CREATE TABLE IF NOT EXISTS "customers" (
       "id" serial PRIMARY KEY,
-      "contact_name" text NOT NULL,
+      "first_name" text NOT NULL,
+      "family_name" text NOT NULL,
       "company" text NOT NULL,
       "address" text NOT NULL,
       "email" text NOT NULL,
@@ -63,6 +64,35 @@ export async function initDb(): Promise<void> {
     ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "created_by_id" integer REFERENCES "users"("id");
     ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "created_by_id" integer REFERENCES "users"("id");
     ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "created_at" timestamptz;
+    -- Upgrade databases from before contact names were split into a first
+    -- and family name (needed for e.g. "Dear Ms Doe" salutations). Existing
+    -- entries are split on the last space; a name with none becomes an
+    -- empty family name.
+    ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "first_name" text;
+    ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "family_name" text;
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'contact_name'
+      ) THEN
+        UPDATE "customers" SET
+          "first_name" = CASE
+            WHEN strpos(reverse("contact_name"), ' ') = 0 THEN "contact_name"
+            ELSE trim(substring("contact_name" from 1 for length("contact_name") - strpos(reverse("contact_name"), ' ')))
+          END,
+          "family_name" = CASE
+            WHEN strpos(reverse("contact_name"), ' ') = 0 THEN ''
+            ELSE trim(substring("contact_name" from length("contact_name") - strpos(reverse("contact_name"), ' ') + 2))
+          END
+        WHERE "first_name" IS NULL;
+        ALTER TABLE "customers" DROP COLUMN "contact_name";
+      END IF;
+    END $$;
+    UPDATE "customers" SET "first_name" = '' WHERE "first_name" IS NULL;
+    UPDATE "customers" SET "family_name" = '' WHERE "family_name" IS NULL;
+    ALTER TABLE "customers" ALTER COLUMN "first_name" SET NOT NULL;
+    ALTER TABLE "customers" ALTER COLUMN "family_name" SET NOT NULL;
     CREATE TABLE IF NOT EXISTS "order_items" (
       "id" serial PRIMARY KEY,
       "order_id" integer NOT NULL REFERENCES "orders"("id") ON DELETE CASCADE,

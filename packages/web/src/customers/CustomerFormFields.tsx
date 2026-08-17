@@ -2,7 +2,8 @@ import { todayIso } from "../lib/format";
 
 /** The customer form as it is typed, one string per input. */
 export type CustomerFormValues = {
-  contactName: string;
+  firstName: string;
+  familyName: string;
   company: string;
   address: string;
   email: string;
@@ -12,7 +13,8 @@ export type CustomerFormValues = {
 /** A blank form for a new customer, dated today. */
 export function emptyCustomerForm(): CustomerFormValues {
   return {
-    contactName: "",
+    firstName: "",
+    familyName: "",
     company: "",
     address: "",
     email: "",
@@ -31,11 +33,20 @@ export default function CustomerFormFields({
   return (
     <div className="grid">
       <label>
-        Contact person
+        First name
         <input
-          value={form.contactName}
-          onChange={(e) => onChange({ contactName: e.target.value })}
-          placeholder="Jane Doe"
+          value={form.firstName}
+          onChange={(e) => onChange({ firstName: e.target.value })}
+          placeholder="Jane"
+          required
+        />
+      </label>
+      <label>
+        Family name
+        <input
+          value={form.familyName}
+          onChange={(e) => onChange({ familyName: e.target.value })}
+          placeholder="Doe"
           required
         />
       </label>

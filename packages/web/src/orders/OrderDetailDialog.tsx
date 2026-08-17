@@ -53,8 +53,12 @@ export default function OrderDetailDialog({
               {order.customer.company}
             </div>
             <div>
-              <span className="detail-label">Contact person</span>
-              {order.customer.contactName}
+              <span className="detail-label">First name</span>
+              {order.customer.firstName}
+            </div>
+            <div>
+              <span className="detail-label">Family name</span>
+              {order.customer.familyName}
             </div>
             <div>
               <span className="detail-label">E-mail</span>

@@ -93,7 +93,9 @@ export default function OrdersPage() {
                     <td>
                       {order.company}
                       <br />
-                      <span className="muted">{order.contactName}</span>
+                      <span className="muted">
+                        {order.firstName} {order.familyName}
+                      </span>
                     </td>
                     <td>{formatDateTime(order.createdAt)}</td>
                     <td>
