@@ -35,7 +35,8 @@ export async function initDb(): Promise<void> {
       "email" text NOT NULL,
       "customer_since" date NOT NULL,
       "created_by_id" integer REFERENCES "users"("id"),
-      "created_at" timestamptz
+      "created_at" timestamptz,
+      "vat_number" text
     );
     CREATE TABLE IF NOT EXISTS "products" (
       "id" serial PRIMARY KEY,
@@ -60,6 +61,9 @@ export async function initDb(): Promise<void> {
     ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "created_by_id" integer REFERENCES "users"("id");
     ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "created_by_id" integer REFERENCES "users"("id");
     ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "created_at" timestamptz;
+    -- Upgrade databases from before we tracked VAT numbers. Not every
+    -- customer gives us one, so existing rows stay NULL.
+    ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "vat_number" text;
     CREATE TABLE IF NOT EXISTS "order_items" (
       "id" serial PRIMARY KEY,
       "order_id" integer NOT NULL REFERENCES "orders"("id") ON DELETE CASCADE,

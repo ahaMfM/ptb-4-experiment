@@ -49,6 +49,8 @@ export const customers = pgTable("customers", {
   address: text("address").notNull(),
   email: text("email").notNull(),
   customerSince: date("customer_since").notNull(),
+  /** VAT number for the accountant; not every customer provides one. */
+  vatNumber: text("vat_number"),
   /**
    * Who recorded the customer and when. Both stay null for entries from
    * before everyone signed in — there we simply do not know.

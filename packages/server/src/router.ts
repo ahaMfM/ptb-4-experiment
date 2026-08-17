@@ -134,6 +134,8 @@ const customerInput = z.object({
   address: z.string().trim().min(1, "Address is required"),
   email: z.email("A valid e-mail address is required"),
   customerSince: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+  // Not every customer gives us one.
+  vatNumber: z.string().trim().optional(),
 });
 
 export const appRouter = t.router({
@@ -235,6 +237,7 @@ export const appRouter = t.router({
             address: customers.address,
             email: customers.email,
             customerSince: customers.customerSince,
+            vatNumber: customers.vatNumber,
             createdAt: customers.createdAt,
             // Who recorded the customer; null for old entries.
             recordedBy: users.name,

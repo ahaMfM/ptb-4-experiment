@@ -20,6 +20,7 @@ type CustomerFormValues = {
   address: string;
   email: string;
   customerSince: string;
+  vatNumber: string;
 };
 
 /**
@@ -35,6 +36,7 @@ function customersToCsv(list: CustomerRecord[]): string {
       "Address",
       "E-mail",
       "Customer since",
+      "VAT number",
       "Recorded by",
       "Recorded at",
     ],
@@ -45,6 +47,8 @@ function customersToCsv(list: CustomerRecord[]): string {
       c.address,
       c.email,
       c.customerSince,
+      // Empty when the customer has not given us one.
+      c.vatNumber ?? "",
       // Empty for entries from before we tracked who recorded what.
       c.recordedBy ?? "",
       c.createdAt ?? "",
@@ -58,6 +62,7 @@ const emptyForm: CustomerFormValues = {
   address: "",
   email: "",
   customerSince: today(),
+  vatNumber: "",
 };
 
 function CustomerFields({
@@ -109,6 +114,14 @@ function CustomerFields({
           value={form.customerSince}
           onChange={set("customerSince")}
           required
+        />
+      </label>
+      <label>
+        VAT number
+        <input
+          value={form.vatNumber}
+          onChange={set("vatNumber")}
+          placeholder="DE123456789"
         />
       </label>
       <label className="full">
@@ -176,6 +189,10 @@ function CustomerDetailDialog({
           <div>
             <span className="detail-label">Address</span>
             <span className="address">{customer.address}</span>
+          </div>
+          <div>
+            <span className="detail-label">VAT number</span>
+            {customer.vatNumber || <span className="muted">—</span>}
           </div>
           <div>
             <span className="detail-label">Recorded by</span>
@@ -332,6 +349,7 @@ function EditCustomerDialog({
     address: customer.address,
     email: customer.email,
     customerSince: customer.customerSince,
+    vatNumber: customer.vatNumber ?? "",
   });
   const [error, setError] = useState<string | null>(null);
 
