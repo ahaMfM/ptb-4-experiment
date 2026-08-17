@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import StatusBadge from "./StatusBadge";
 import { useTRPC } from "./trpc";
@@ -10,6 +15,7 @@ type OrderLine = {
 };
 
 const emptyLine: OrderLine = { productId: "", quantity: "1" };
+const ORDERS_PAGE_SIZE = 20;
 
 function OrderDetailDialog({
   orderId,
@@ -203,14 +209,22 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [openOrderId, setOpenOrderId] = useState<number | null>(null);
+  const [ordersPage, setOrdersPage] = useState(1);
 
   const customersQuery = useQuery(trpc.customer.list.queryOptions());
   const productsQuery = useQuery(trpc.product.list.queryOptions());
-  const ordersQuery = useQuery(trpc.order.list.queryOptions());
+  const ordersQuery = useQuery(
+    trpc.order.list.queryOptions(
+      { page: ordersPage, pageSize: ORDERS_PAGE_SIZE },
+      { placeholderData: keepPreviousData },
+    ),
+  );
 
   const customers = customersQuery.data ?? [];
   const products = productsQuery.data ?? [];
-  const orders = ordersQuery.data ?? [];
+  const orders = ordersQuery.data?.orders ?? [];
+  const ordersTotal = ordersQuery.data?.total ?? 0;
+  const ordersPageCount = Math.max(1, Math.ceil(ordersTotal / ORDERS_PAGE_SIZE));
 
   const productById = new Map(products.map((p) => [String(p.id), p]));
 
@@ -223,6 +237,7 @@ export default function OrdersPage() {
         setSuccess(
           `Order #${order.id} was placed and is now ${order.status}. Stock has been updated.`,
         );
+        setOrdersPage(1);
         await Promise.all([
           queryClient.invalidateQueries(trpc.order.list.queryFilter()),
           queryClient.invalidateQueries(trpc.product.list.queryFilter()),
@@ -429,7 +444,7 @@ export default function OrdersPage() {
       <section className="card">
         <h2>
           All orders
-          {ordersQuery.isSuccess && <span className="count"> ({orders.length})</span>}
+          {ordersQuery.isSuccess && <span className="count"> ({ordersTotal})</span>}
         </h2>
         {ordersQuery.isLoading && <p className="muted">Loading…</p>}
         {ordersQuery.isError && (
@@ -556,6 +571,27 @@ export default function OrdersPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {ordersTotal > 0 && (
+          <div className="pagination">
+            <button
+              type="button"
+              onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
+              disabled={ordersPage <= 1}
+            >
+              Previous
+            </button>
+            <span className="muted">
+              Page {ordersPage} of {ordersPageCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setOrdersPage((p) => Math.min(ordersPageCount, p + 1))}
+              disabled={ordersPage >= ordersPageCount}
+            >
+              Next
+            </button>
           </div>
         )}
       </section>

@@ -435,56 +435,80 @@ export const appRouter = t.router({
       }),
   }),
   order: t.router({
-    list: protectedProcedure.query(async () => {
-      const orderRows = await db
-        .select({
-          id: orders.id,
-          createdAt: orders.createdAt,
-          status: orders.status,
-          customerId: orders.customerId,
-          contactName: customers.contactName,
-          company: customers.company,
-          // Who recorded the order; null for old entries.
-          recordedBy: users.name,
-        })
-        .from(orders)
-        .innerJoin(customers, eq(customers.id, orders.customerId))
-        .leftJoin(users, eq(users.id, orders.createdById))
-        .orderBy(desc(orders.createdAt), desc(orders.id));
+    list: protectedProcedure
+      .input(
+        z
+          .object({
+            page: z.number().int().min(1).default(1),
+            pageSize: z.number().int().min(1).max(100).default(20),
+          })
+          .default(() => ({ page: 1, pageSize: 20 })),
+      )
+      .query(async ({ input }) => {
+        const { page, pageSize } = input;
 
-      const itemRows = await db
-        .select({
-          orderId: orderItems.orderId,
-          productId: orderItems.productId,
-          quantity: orderItems.quantity,
-          unitPrice: orderItems.unitPrice,
-          productName: products.name,
-        })
-        .from(orderItems)
-        .innerJoin(products, eq(products.id, orderItems.productId))
-        .orderBy(orderItems.id);
+        const [{ count }] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(orders);
 
-      return orderRows.map((order) => {
-        const items = itemRows
-          .filter((item) => item.orderId === order.id)
-          .map(({ orderId: _orderId, ...item }) => item);
-        const total = items.reduce(
-          (sum, item) => sum + Number(item.unitPrice) * item.quantity,
-          0,
-        );
+        const orderRows = await db
+          .select({
+            id: orders.id,
+            createdAt: orders.createdAt,
+            status: orders.status,
+            customerId: orders.customerId,
+            contactName: customers.contactName,
+            company: customers.company,
+            // Who recorded the order; null for old entries.
+            recordedBy: users.name,
+          })
+          .from(orders)
+          .innerJoin(customers, eq(customers.id, orders.customerId))
+          .leftJoin(users, eq(users.id, orders.createdById))
+          .orderBy(desc(orders.createdAt), desc(orders.id))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize);
+
+        const orderIds = orderRows.map((order) => order.id);
+        const itemRows = orderIds.length
+          ? await db
+              .select({
+                orderId: orderItems.orderId,
+                productId: orderItems.productId,
+                quantity: orderItems.quantity,
+                unitPrice: orderItems.unitPrice,
+                productName: products.name,
+              })
+              .from(orderItems)
+              .innerJoin(products, eq(products.id, orderItems.productId))
+              .where(inArray(orderItems.orderId, orderIds))
+              .orderBy(orderItems.id)
+          : [];
+
         return {
-          id: order.id,
-          createdAt: order.createdAt.toISOString(),
-          status: order.status,
-          customerId: order.customerId,
-          contactName: order.contactName,
-          company: order.company,
-          recordedBy: order.recordedBy,
-          items,
-          total: total.toFixed(2),
+          orders: orderRows.map((order) => {
+            const items = itemRows
+              .filter((item) => item.orderId === order.id)
+              .map(({ orderId: _orderId, ...item }) => item);
+            const total = items.reduce(
+              (sum, item) => sum + Number(item.unitPrice) * item.quantity,
+              0,
+            );
+            return {
+              id: order.id,
+              createdAt: order.createdAt.toISOString(),
+              status: order.status,
+              customerId: order.customerId,
+              contactName: order.contactName,
+              company: order.company,
+              recordedBy: order.recordedBy,
+              items,
+              total: total.toFixed(2),
+            };
+          }),
+          total: count,
         };
-      });
-    }),
+      }),
     /** Everything about a single order: status, customer, and all line items. */
     byId: protectedProcedure
       .input(z.object({ id: z.number().int().positive() }))

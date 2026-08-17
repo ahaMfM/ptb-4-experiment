@@ -135,6 +135,14 @@ button:disabled {
   overflow-x: auto;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
