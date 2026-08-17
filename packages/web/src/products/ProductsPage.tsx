@@ -12,6 +12,14 @@ import ProductFormFields, {
   toProductInput,
 } from "./ProductFormFields";
 
+type ProductView = "big" | "compact";
+
+const PRODUCT_VIEW_KEY = "products.view";
+
+function loadProductView(): ProductView {
+  return localStorage.getItem(PRODUCT_VIEW_KEY) === "compact" ? "compact" : "big";
+}
+
 /** The catalog: what we sell, at what price, and how much of it is in stock. */
 export default function ProductsPage() {
   const trpc = useTRPC();
@@ -21,6 +29,12 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState<Product | null>(null);
+  const [view, setView] = useState<ProductView>(loadProductView);
+
+  const changeView = (next: ProductView) => {
+    setView(next);
+    localStorage.setItem(PRODUCT_VIEW_KEY, next);
+  };
 
   const productsQuery = useQuery(trpc.product.list.queryOptions());
   const products = productsQuery.data ?? [];
@@ -68,17 +82,35 @@ export default function ProductsPage() {
       </section>
 
       <section className="card">
-        <h2>
-          Our products
-          {productsQuery.isSuccess && (
-            <span className="count"> ({products.length})</span>
-          )}
-        </h2>
+        <div className="list-header">
+          <h2>
+            Our products
+            {productsQuery.isSuccess && (
+              <span className="count"> ({products.length})</span>
+            )}
+          </h2>
+          <div className="view-toggle" role="group" aria-label="Product view">
+            <button
+              type="button"
+              className={view === "big" ? "tab active" : "tab"}
+              onClick={() => changeView("big")}
+            >
+              Big cards
+            </button>
+            <button
+              type="button"
+              className={view === "compact" ? "tab active" : "tab"}
+              onClick={() => changeView("compact")}
+            >
+              Compact
+            </button>
+          </div>
+        </div>
         <QueryFeedback query={productsQuery} errorPrefix="Could not load products" />
         {productsQuery.isSuccess && products.length === 0 && (
           <p className="muted">No products yet. Add your first one above.</p>
         )}
-        {products.length > 0 && (
+        {products.length > 0 && view === "big" && (
           <div className="product-grid">
             {products.map((product) => (
               <article key={product.id} className="product-card">
@@ -124,6 +156,34 @@ export default function ProductsPage() {
                       </button>
                     </span>
                   </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+        {products.length > 0 && view === "compact" && (
+          <div className="product-grid product-grid-compact">
+            {products.map((product) => (
+              <article key={product.id} className="product-card product-card-compact">
+                <img
+                  className="product-image product-image-compact"
+                  src={product.image}
+                  alt={product.name}
+                />
+                <div className="product-body product-body-compact">
+                  <h3>{product.name}</h3>
+                  <span className="product-price">
+                    {formatPrice(product.price)}
+                  </span>
+                  <span
+                    className={
+                      product.stock > 0
+                        ? "stock-badge"
+                        : "stock-badge out-of-stock"
+                    }
+                  >
+                    {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
+                  </span>
                 </div>
               </article>
             ))}

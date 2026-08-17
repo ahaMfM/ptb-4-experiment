@@ -465,6 +465,67 @@ button.tab.active .tab-badge {
   color: var(--error);
 }
 
+.view-toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.view-toggle button.tab {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.9rem;
+  margin-bottom: 0;
+}
+
+.view-toggle button.tab.active {
+  background: var(--info-bg);
+  border-color: var(--accent);
+}
+
+.product-grid-compact {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.75rem;
+}
+
+.product-card-compact {
+  flex-direction: row;
+  align-items: center;
+}
+
+.product-image-compact {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-bottom: none;
+  border-right: 1px solid var(--border);
+}
+
+.product-body-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.5rem 0.7rem;
+  min-width: 0;
+}
+
+.product-body-compact h3 {
+  font-size: 0.875rem;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-body-compact .product-price {
+  font-size: 0.8rem;
+}
+
+.product-body-compact .stock-badge {
+  align-self: flex-start;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.5rem;
+}
+
 input[type="file"] {
   padding: 0.4rem;
 }
