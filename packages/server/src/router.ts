@@ -1,10 +1,10 @@
 import { initTRPC, TRPCError } from "@trpc/server";
-import { desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "./db/index.js";
-import { customers, products } from "./db/schema.js";
+import { customers, orderItems, orders, products } from "./db/schema.js";
 
-export type { Customer, Product } from "./db/schema.js";
+export type { Customer, Order, OrderItem, Product } from "./db/schema.js";
 
 const t = initTRPC.create();
 
@@ -29,6 +29,37 @@ const productInput = z.object({
     .int("Stock must be a whole number")
     .min(0, "Stock cannot be negative"),
 });
+
+const orderInput = z.object({
+  customerId: z.number().int().positive("Please choose a customer"),
+  items: z
+    .array(
+      z.object({
+        productId: z.number().int().positive("Please choose a product"),
+        quantity: z
+          .number()
+          .int("Quantity must be a whole number")
+          .min(1, "Quantity must be at least 1"),
+      }),
+    )
+    .min(1, "An order needs at least one product")
+    .refine(
+      (items) => new Set(items.map((i) => i.productId)).size === items.length,
+      "Each product may only appear once per order",
+    ),
+});
+
+/**
+ * Drizzle wraps driver errors ("Failed query: …") with the real Postgres
+ * error in `cause`, so walk the cause chain when looking for FK violations.
+ */
+function isForeignKeyViolation(err: unknown): boolean {
+  while (err instanceof Error) {
+    if (/foreign key/i.test(err.message)) return true;
+    err = err.cause;
+  }
+  return false;
+}
 
 const customerInput = z.object({
   contactName: z.string().trim().min(1, "Contact name is required"),
@@ -85,10 +116,22 @@ export const appRouter = t.router({
     remove: t.procedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
-        const [deleted] = await db
-          .delete(customers)
-          .where(eq(customers.id, input.id))
-          .returning();
+        let deleted;
+        try {
+          [deleted] = await db
+            .delete(customers)
+            .where(eq(customers.id, input.id))
+            .returning();
+        } catch (err) {
+          if (isForeignKeyViolation(err)) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "This customer has orders on record and cannot be deleted.",
+            });
+          }
+          throw err;
+        }
         if (!deleted) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -127,10 +170,22 @@ export const appRouter = t.router({
     remove: t.procedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
-        const [deleted] = await db
-          .delete(products)
-          .where(eq(products.id, input.id))
-          .returning();
+        let deleted;
+        try {
+          [deleted] = await db
+            .delete(products)
+            .where(eq(products.id, input.id))
+            .returning();
+        } catch (err) {
+          if (isForeignKeyViolation(err)) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "This product appears in existing orders and cannot be deleted.",
+            });
+          }
+          throw err;
+        }
         if (!deleted) {
           throw new TRPCError({
             code: "NOT_FOUND",
@@ -139,6 +194,130 @@ export const appRouter = t.router({
         }
         return deleted;
       }),
+  }),
+  order: t.router({
+    list: t.procedure.query(async () => {
+      const orderRows = await db
+        .select({
+          id: orders.id,
+          createdAt: orders.createdAt,
+          customerId: orders.customerId,
+          contactName: customers.contactName,
+          company: customers.company,
+        })
+        .from(orders)
+        .innerJoin(customers, eq(customers.id, orders.customerId))
+        .orderBy(desc(orders.createdAt), desc(orders.id));
+
+      const itemRows = await db
+        .select({
+          orderId: orderItems.orderId,
+          productId: orderItems.productId,
+          quantity: orderItems.quantity,
+          unitPrice: orderItems.unitPrice,
+          productName: products.name,
+        })
+        .from(orderItems)
+        .innerJoin(products, eq(products.id, orderItems.productId))
+        .orderBy(orderItems.id);
+
+      return orderRows.map((order) => {
+        const items = itemRows
+          .filter((item) => item.orderId === order.id)
+          .map(({ orderId: _orderId, ...item }) => item);
+        const total = items.reduce(
+          (sum, item) => sum + Number(item.unitPrice) * item.quantity,
+          0,
+        );
+        return {
+          id: order.id,
+          createdAt: order.createdAt.toISOString(),
+          customerId: order.customerId,
+          contactName: order.contactName,
+          company: order.company,
+          items,
+          total: total.toFixed(2),
+        };
+      });
+    }),
+    create: t.procedure.input(orderInput).mutation(async ({ input }) => {
+      return db.transaction(async (tx) => {
+        const [customer] = await tx
+          .select({ id: customers.id })
+          .from(customers)
+          .where(eq(customers.id, input.customerId));
+        if (!customer) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Customer not found",
+          });
+        }
+
+        const productIds = input.items.map((i) => i.productId);
+        const productRows = await tx
+          .select()
+          .from(products)
+          .where(inArray(products.id, productIds));
+        const productById = new Map(productRows.map((p) => [p.id, p]));
+
+        // Check stock for every line first so the user is told about
+        // all shortages at once, and the order goes through as a whole or
+        // not at all.
+        const problems: string[] = [];
+        for (const item of input.items) {
+          const product = productById.get(item.productId);
+          if (!product) {
+            problems.push(`Product #${item.productId} no longer exists.`);
+          } else if (product.stock < item.quantity) {
+            problems.push(
+              `Not enough stock for “${product.name}”: ${item.quantity} requested, ${product.stock} available.`,
+            );
+          }
+        }
+        if (problems.length > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: problems.join(" "),
+          });
+        }
+
+        // Decrement stock with a guard so a concurrent order can never
+        // push stock below zero; if the guard fails, roll everything back.
+        for (const item of input.items) {
+          const updated = await tx
+            .update(products)
+            .set({ stock: sql`${products.stock} - ${item.quantity}` })
+            .where(
+              and(
+                eq(products.id, item.productId),
+                gte(products.stock, item.quantity),
+              ),
+            )
+            .returning({ id: products.id });
+          if (updated.length === 0) {
+            const name = productById.get(item.productId)?.name ?? `#${item.productId}`;
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: `Stock of “${name}” changed while placing the order. Please try again.`,
+            });
+          }
+        }
+
+        const [order] = await tx
+          .insert(orders)
+          .values({ customerId: input.customerId })
+          .returning();
+        await tx.insert(orderItems).values(
+          input.items.map((item) => ({
+            orderId: order.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: productById.get(item.productId)!.price,
+          })),
+        );
+        return { id: order.id, createdAt: order.createdAt.toISOString() };
+      });
+    }),
   }),
 });
 

@@ -35,5 +35,17 @@ export async function initDb(): Promise<void> {
       "price" numeric(10,2) NOT NULL,
       "stock" integer NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS "orders" (
+      "id" serial PRIMARY KEY,
+      "customer_id" integer NOT NULL REFERENCES "customers"("id"),
+      "created_at" timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS "order_items" (
+      "id" serial PRIMARY KEY,
+      "order_id" integer NOT NULL REFERENCES "orders"("id") ON DELETE CASCADE,
+      "product_id" integer NOT NULL REFERENCES "products"("id"),
+      "quantity" integer NOT NULL CHECK ("quantity" > 0),
+      "unit_price" numeric(10,2) NOT NULL
+    );
   `);
 }

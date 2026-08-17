@@ -1,4 +1,12 @@
-import { date, integer, numeric, pgTable, serial, text } from "drizzle-orm/pg-core";
+import {
+  date,
+  integer,
+  numeric,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
@@ -23,3 +31,30 @@ export const products = pgTable("products", {
 });
 
 export type Product = typeof products.$inferSelect;
+
+export const orders = pgTable("orders", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => customers.id),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type Order = typeof orders.$inferSelect;
+
+export const orderItems = pgTable("order_items", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  productId: integer("product_id")
+    .notNull()
+    .references(() => products.id),
+  quantity: integer("quantity").notNull(),
+  /** Price per unit at the time the order was placed (prices may change later). */
+  unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
+});
+
+export type OrderItem = typeof orderItems.$inferSelect;

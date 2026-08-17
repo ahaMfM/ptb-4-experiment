@@ -1,3 +1,14 @@
+const priceFormatter = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "EUR",
+});
+
+/** Format a numeric string like "19.90" as a localized EUR amount. */
+export function formatPrice(price: string | number): string {
+  const value = Number(price);
+  return Number.isFinite(value) ? priceFormatter.format(value) : String(price);
+}
+
 /** Zod validation errors arrive as a JSON array in the message; show just the texts. */
 export function readableError(message: string): string {
   try {

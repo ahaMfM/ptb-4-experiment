@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import type { Product } from "server/router";
 import { useTRPC } from "./trpc";
-import { readableError } from "./utils";
+import { formatPrice, readableError } from "./utils";
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024; // 2 MB
 
@@ -21,16 +21,6 @@ const emptyForm: ProductFormValues = {
   price: "",
   stock: "",
 };
-
-const priceFormatter = new Intl.NumberFormat(undefined, {
-  style: "currency",
-  currency: "EUR",
-});
-
-function formatPrice(price: string): string {
-  const value = Number(price);
-  return Number.isFinite(value) ? priceFormatter.format(value) : price;
-}
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

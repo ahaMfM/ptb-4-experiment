@@ -79,7 +79,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   font: inherit;
   font-weight: normal;
   padding: 0.5rem 0.65rem;
@@ -90,7 +91,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
   border-color: var(--accent);
@@ -387,4 +389,83 @@ button.tab.active {
 
 input[type="file"] {
   padding: 0.4rem;
+}
+
+.success {
+  color: #1e7a3c;
+  font-size: 0.875rem;
+}
+
+.order-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.order-line {
+  display: grid;
+  grid-template-columns: 1fr 7rem auto auto;
+  gap: 1rem;
+  align-items: end;
+}
+
+.order-line .line-info {
+  min-width: 6rem;
+  font-size: 0.875rem;
+  padding-bottom: 0.6rem;
+  text-align: right;
+}
+
+.order-line .link-button {
+  padding-bottom: 0.6rem;
+}
+
+@media (max-width: 640px) {
+  .order-line {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.order-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.order-total {
+  font-weight: 700;
+}
+
+.order {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.order-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.order-header h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+th.num,
+td.num {
+  text-align: right;
+}
+
+tr.order-total-row td {
+  font-weight: 700;
+  border-bottom: none;
 }
