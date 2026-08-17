@@ -49,6 +49,12 @@ export const customers = pgTable("customers", {
   address: text("address").notNull(),
   email: text("email").notNull(),
   customerSince: date("customer_since").notNull(),
+  /**
+   * Who recorded the customer and when. Both stay null for entries from
+   * before everyone signed in — there we simply do not know.
+   */
+  createdById: integer("created_by_id").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }),
 });
 
 export type Customer = typeof customers.$inferSelect;
@@ -76,6 +82,11 @@ export const orders = pgTable("orders", {
     .notNull()
     .references(() => customers.id),
   status: text("status").$type<OrderStatus>().notNull().default("open"),
+  /**
+   * Who recorded the order; `createdAt` below is when. Null for orders
+   * from before everyone signed in — there we do not know who it was.
+   */
+  createdById: integer("created_by_id").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

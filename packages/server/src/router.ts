@@ -24,6 +24,19 @@ export type {
 } from "./db/schema.js";
 export { ORDER_STATUSES } from "./db/schema.js";
 
+/**
+ * A customer as the web application sees it: the stored fields plus the
+ * name of the team member who recorded the customer and when. Both are
+ * null for entries from before everyone signed in.
+ */
+export type CustomerRecord = Omit<
+  import("./db/schema.js").Customer,
+  "createdById" | "createdAt"
+> & {
+  createdAt: string | null;
+  recordedBy: string | null;
+};
+
 const t = initTRPC.context<Context>().create();
 
 /**
@@ -208,15 +221,26 @@ export const appRouter = t.router({
   customer: t.router({
     list: protectedProcedure
       .input(z.object({ search: z.string().trim().optional() }).optional())
-      .query(({ input }) => {
+      .query(async ({ input }): Promise<CustomerRecord[]> => {
         const term = input?.search;
         // Escape LIKE wildcards so a search for "100%" matches literally.
         const pattern = term
           ? `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`
           : null;
-        return db
-          .select()
+        const rows = await db
+          .select({
+            id: customers.id,
+            contactName: customers.contactName,
+            company: customers.company,
+            address: customers.address,
+            email: customers.email,
+            customerSince: customers.customerSince,
+            createdAt: customers.createdAt,
+            // Who recorded the customer; null for old entries.
+            recordedBy: users.name,
+          })
           .from(customers)
+          .leftJoin(users, eq(users.id, customers.createdById))
           .where(
             pattern
               ? or(
@@ -226,6 +250,10 @@ export const appRouter = t.router({
               : undefined,
           )
           .orderBy(desc(customers.customerSince), desc(customers.id));
+        return rows.map((row) => ({
+          ...row,
+          createdAt: row.createdAt?.toISOString() ?? null,
+        }));
       }),
     /**
      * All orders a customer has placed, newest first, each with its
@@ -250,8 +278,11 @@ export const appRouter = t.router({
             id: orders.id,
             createdAt: orders.createdAt,
             status: orders.status,
+            // Who recorded the order; null for old entries.
+            recordedBy: users.name,
           })
           .from(orders)
+          .leftJoin(users, eq(users.id, orders.createdById))
           .where(eq(orders.customerId, input.customerId))
           .orderBy(desc(orders.createdAt), desc(orders.id));
         if (orderRows.length === 0) return [];
@@ -281,19 +312,33 @@ export const appRouter = t.router({
             id: order.id,
             createdAt: order.createdAt.toISOString(),
             status: order.status,
+            recordedBy: order.recordedBy,
             items,
             total: total.toFixed(2),
           };
         });
       }),
-    create: protectedProcedure.input(customerInput).mutation(async ({ input }) => {
-      const [created] = await db.insert(customers).values(input).returning();
-      return created;
-    }),
+    create: protectedProcedure
+      .input(customerInput)
+      .mutation(async ({ input, ctx }): Promise<CustomerRecord> => {
+        // Remember who recorded the customer and when.
+        const [created] = await db
+          .insert(customers)
+          .values({ ...input, createdById: ctx.user.id, createdAt: new Date() })
+          .returning();
+        const { createdById: _createdById, ...rest } = created;
+        return {
+          ...rest,
+          createdAt: created.createdAt?.toISOString() ?? null,
+          recordedBy: ctx.user.name,
+        };
+      }),
     update: protectedProcedure
       .input(customerInput.extend({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         const { id, ...values } = input;
+        // Editing deliberately leaves created_by/created_at untouched:
+        // they record who first entered the customer.
         const [updated] = await db
           .update(customers)
           .set(values)
@@ -305,7 +350,7 @@ export const appRouter = t.router({
             message: "Customer not found",
           });
         }
-        return updated;
+        return { ...updated, createdAt: updated.createdAt?.toISOString() ?? null };
       }),
     remove: protectedProcedure
       .input(z.object({ id: z.number().int().positive() }))
@@ -332,7 +377,7 @@ export const appRouter = t.router({
             message: "Customer not found",
           });
         }
-        return deleted;
+        return { ...deleted, createdAt: deleted.createdAt?.toISOString() ?? null };
       }),
   }),
   product: t.router({
@@ -399,9 +444,12 @@ export const appRouter = t.router({
           customerId: orders.customerId,
           contactName: customers.contactName,
           company: customers.company,
+          // Who recorded the order; null for old entries.
+          recordedBy: users.name,
         })
         .from(orders)
         .innerJoin(customers, eq(customers.id, orders.customerId))
+        .leftJoin(users, eq(users.id, orders.createdById))
         .orderBy(desc(orders.createdAt), desc(orders.id));
 
       const itemRows = await db
@@ -431,6 +479,7 @@ export const appRouter = t.router({
           customerId: order.customerId,
           contactName: order.contactName,
           company: order.company,
+          recordedBy: order.recordedBy,
           items,
           total: total.toFixed(2),
         };
@@ -445,10 +494,20 @@ export const appRouter = t.router({
             id: orders.id,
             createdAt: orders.createdAt,
             status: orders.status,
-            customer: customers,
+            // Who recorded the order; null for old entries.
+            recordedBy: users.name,
+            customer: {
+              id: customers.id,
+              contactName: customers.contactName,
+              company: customers.company,
+              address: customers.address,
+              email: customers.email,
+              customerSince: customers.customerSince,
+            },
           })
           .from(orders)
           .innerJoin(customers, eq(customers.id, orders.customerId))
+          .leftJoin(users, eq(users.id, orders.createdById))
           .where(eq(orders.id, input.id));
         if (!order) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
@@ -475,12 +534,13 @@ export const appRouter = t.router({
           id: order.id,
           createdAt: order.createdAt.toISOString(),
           status: order.status,
+          recordedBy: order.recordedBy,
           customer: order.customer,
           items,
           total: total.toFixed(2),
         };
       }),
-    create: protectedProcedure.input(orderInput).mutation(async ({ input }) => {
+    create: protectedProcedure.input(orderInput).mutation(async ({ input, ctx }) => {
       return db.transaction(async (tx) => {
         const [customer] = await tx
           .select({ id: customers.id })
@@ -543,9 +603,10 @@ export const appRouter = t.router({
           }
         }
 
+        // Remember who recorded the order; `created_at` says when.
         const [order] = await tx
           .insert(orders)
-          .values({ customerId: input.customerId })
+          .values({ customerId: input.customerId, createdById: ctx.user.id })
           .returning();
         await tx.insert(orderItems).values(
           input.items.map((item) => ({

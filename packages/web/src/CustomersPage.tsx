@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import type { Customer } from "server/router";
+import type { CustomerRecord } from "server/router";
 import StatusBadge from "./StatusBadge";
 import { useTRPC } from "./trpc";
 import {
@@ -26,9 +26,18 @@ type CustomerFormValues = {
  * Turn a customer list into a CSV file with every stored field, e.g. to
  * hand the complete customer data to the accountant.
  */
-function customersToCsv(list: Customer[]): string {
+function customersToCsv(list: CustomerRecord[]): string {
   return toCsv(
-    ["ID", "Contact person", "Company", "Address", "E-mail", "Customer since"],
+    [
+      "ID",
+      "Contact person",
+      "Company",
+      "Address",
+      "E-mail",
+      "Customer since",
+      "Recorded by",
+      "Recorded at",
+    ],
     list.map((c) => [
       c.id,
       c.contactName,
@@ -36,6 +45,9 @@ function customersToCsv(list: Customer[]): string {
       c.address,
       c.email,
       c.customerSince,
+      // Empty for entries from before we tracked who recorded what.
+      c.recordedBy ?? "",
+      c.createdAt ?? "",
     ]),
   );
 }
@@ -121,7 +133,7 @@ function CustomerDetailDialog({
   customer,
   onClose,
 }: {
-  customer: Customer;
+  customer: CustomerRecord;
   onClose: () => void;
 }) {
   const trpc = useTRPC();
@@ -165,6 +177,23 @@ function CustomerDetailDialog({
             <span className="detail-label">Address</span>
             <span className="address">{customer.address}</span>
           </div>
+          <div>
+            <span className="detail-label">Recorded by</span>
+            {customer.recordedBy ? (
+              <>
+                {customer.recordedBy}
+                {customer.createdAt && (
+                  <span className="muted">
+                    {" "}
+                    on {formatDateTime(customer.createdAt)}
+                  </span>
+                )}
+              </>
+            ) : (
+              // Entries from before everyone signed in: we do not know.
+              <span className="muted">—</span>
+            )}
+          </div>
         </div>
 
         <h3>
@@ -187,6 +216,7 @@ function CustomerDetailDialog({
                 <tr>
                   <th>Order</th>
                   <th>Placed</th>
+                  <th>Recorded by</th>
                   <th>Contents</th>
                   <th>Status</th>
                   <th className="num">Total</th>
@@ -197,6 +227,9 @@ function CustomerDetailDialog({
                   <tr key={order.id}>
                     <td>#{order.id}</td>
                     <td>{formatDateTime(order.createdAt)}</td>
+                    <td>
+                      {order.recordedBy ?? <span className="muted">—</span>}
+                    </td>
                     <td>
                       {order.items
                         .map((item) => `${item.quantity} × ${item.productName}`)
@@ -227,7 +260,7 @@ function DeleteCustomerDialog({
   customer,
   onClose,
 }: {
-  customer: Customer;
+  customer: CustomerRecord;
   onClose: () => void;
 }) {
   const trpc = useTRPC();
@@ -288,7 +321,7 @@ function EditCustomerDialog({
   customer,
   onClose,
 }: {
-  customer: Customer;
+  customer: CustomerRecord;
   onClose: () => void;
 }) {
   const trpc = useTRPC();
@@ -351,9 +384,9 @@ export default function CustomersPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
-  const [viewing, setViewing] = useState<Customer | null>(null);
-  const [editing, setEditing] = useState<Customer | null>(null);
-  const [deleting, setDeleting] = useState<Customer | null>(null);
+  const [viewing, setViewing] = useState<CustomerRecord | null>(null);
+  const [editing, setEditing] = useState<CustomerRecord | null>(null);
+  const [deleting, setDeleting] = useState<CustomerRecord | null>(null);
   const [search, setSearch] = useState("");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -474,6 +507,7 @@ export default function CustomersPage() {
                   <th>Address</th>
                   <th>E-mail</th>
                   <th>Customer since</th>
+                  <th>Recorded by</th>
                   <th>
                     <span className="visually-hidden">Actions</span>
                   </th>
@@ -491,6 +525,24 @@ export default function CustomersPage() {
                       </a>
                     </td>
                     <td>{formatDate(c.customerSince)}</td>
+                    <td>
+                      {c.recordedBy ? (
+                        <>
+                          {c.recordedBy}
+                          {c.createdAt && (
+                            <>
+                              <br />
+                              <span className="muted">
+                                {formatDateTime(c.createdAt)}
+                              </span>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        // Entries from before everyone signed in: unknown.
+                        <span className="muted">—</span>
+                      )}
+                    </td>
                     <td>
                       <span className="row-actions">
                         <button

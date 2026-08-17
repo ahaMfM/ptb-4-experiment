@@ -77,7 +77,11 @@ function OrderDetailDialog({
 
         {order && (
           <>
-            <p className="muted">Placed on {formatDateTime(order.createdAt)}</p>
+            <p className="muted">
+              Placed on {formatDateTime(order.createdAt)}
+              {/* Who recorded the order — unknown for old entries. */}
+              {order.recordedBy && <> · recorded by {order.recordedBy}</>}
+            </p>
 
             <h3>Customer</h3>
             <div className="detail-grid">
@@ -466,6 +470,7 @@ export default function OrdersPage() {
                   <th>Order</th>
                   <th>Customer</th>
                   <th>Placed</th>
+                  <th>Recorded by</th>
                   <th>Contents</th>
                   <th>Status</th>
                   <th className="num">Total</th>
@@ -488,6 +493,10 @@ export default function OrdersPage() {
                       <span className="muted">{order.contactName}</span>
                     </td>
                     <td>{formatDateTime(order.createdAt)}</td>
+                    <td>
+                      {/* Unknown for orders from before everyone signed in. */}
+                      {order.recordedBy ?? <span className="muted">—</span>}
+                    </td>
                     <td>
                       {order.items
                         .map((item) => `${item.quantity} × ${item.productName}`)
