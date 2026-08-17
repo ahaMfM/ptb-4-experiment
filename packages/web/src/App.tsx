@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import type { PublicUser } from "server/router";
 import CustomersPage from "./CustomersPage";
 import InvoicesPage from "./InvoicesPage";
@@ -8,8 +7,10 @@ import ProductsPage from "./ProductsPage";
 import SignInPage from "./SignInPage";
 import TeamPage from "./TeamPage";
 import { useTRPC } from "./trpc";
+import { useUrlParam } from "./utils";
 
 type Page = "products" | "customers" | "orders" | "invoices" | "team";
+const PAGES: Page[] = ["products", "customers", "orders", "invoices", "team"];
 
 /**
  * Everyone signs in as themselves before using the application, so the app
@@ -75,7 +76,9 @@ function BackOffice({
   signingOut: boolean;
 }) {
   const trpc = useTRPC();
-  const [page, setPage] = useState<Page>("products");
+  const [pageParam, setPageParam] = useUrlParam("page", "products");
+  const page = PAGES.includes(pageParam as Page) ? (pageParam as Page) : "products";
+  const setPage = (next: Page) => setPageParam(next);
 
   const unpaidQuery = useQuery(trpc.invoice.unpaidCount.queryOptions());
   const unpaidCount = unpaidQuery.data ?? 0;

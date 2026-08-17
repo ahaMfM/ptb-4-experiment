@@ -2,7 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import StatusBadge from "./StatusBadge";
 import { useTRPC } from "./trpc";
-import { formatDate, formatDateTime, formatPrice, readableError } from "./utils";
+import {
+  formatDate,
+  formatDateTime,
+  formatPrice,
+  readableError,
+  useUrlParam,
+} from "./utils";
 
 type OrderLine = {
   productId: string; // "" while none chosen
@@ -10,6 +16,16 @@ type OrderLine = {
 };
 
 const emptyLine: OrderLine = { productId: "", quantity: "1" };
+
+const STATUS_FILTERS = ["all", "open", "shipped", "cancelled"] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
+  all: "All",
+  open: "Open",
+  shipped: "Shipped",
+  cancelled: "Cancelled",
+};
 
 function OrderDetailDialog({
   orderId,
@@ -203,6 +219,12 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [openOrderId, setOpenOrderId] = useState<number | null>(null);
+  const [statusParam, setStatusParam] = useUrlParam("status", "all");
+  const statusFilter: StatusFilter = STATUS_FILTERS.includes(
+    statusParam as StatusFilter,
+  )
+    ? (statusParam as StatusFilter)
+    : "all";
 
   const customersQuery = useQuery(trpc.customer.list.queryOptions());
   const productsQuery = useQuery(trpc.product.list.queryOptions());
@@ -211,6 +233,10 @@ export default function OrdersPage() {
   const customers = customersQuery.data ?? [];
   const products = productsQuery.data ?? [];
   const orders = ordersQuery.data ?? [];
+  const filteredOrders =
+    statusFilter === "all"
+      ? orders
+      : orders.filter((order) => order.status === statusFilter);
 
   const productById = new Map(products.map((p) => [String(p.id), p]));
 
@@ -427,16 +453,37 @@ export default function OrdersPage() {
       </section>
 
       <section className="card">
-        <h2>
-          All orders
-          {ordersQuery.isSuccess && <span className="count"> ({orders.length})</span>}
-        </h2>
+        <div className="invoice-toolbar">
+          <h2>
+            {STATUS_FILTER_LABELS[statusFilter]} orders
+            {ordersQuery.isSuccess && (
+              <span className="count"> ({filteredOrders.length})</span>
+            )}
+          </h2>
+          <div className="status-filter" role="group" aria-label="Filter by status">
+            {STATUS_FILTERS.map((status) => (
+              <button
+                key={status}
+                type="button"
+                className={
+                  statusFilter === status ? "tab active" : "tab"
+                }
+                onClick={() => setStatusParam(status)}
+              >
+                {STATUS_FILTER_LABELS[status]}
+              </button>
+            ))}
+          </div>
+        </div>
         {ordersQuery.isLoading && <p className="muted">Loading…</p>}
         {ordersQuery.isError && (
           <p className="error">Could not load orders: {ordersQuery.error.message}</p>
         )}
         {ordersQuery.isSuccess && orders.length === 0 && (
           <p className="muted">No orders yet. Place your first one above.</p>
+        )}
+        {ordersQuery.isSuccess && orders.length > 0 && filteredOrders.length === 0 && (
+          <p className="muted">No {statusFilter} orders.</p>
         )}
         {markShipped.isError && (
           <p className="error">
@@ -462,7 +509,7 @@ export default function OrdersPage() {
             stock.
           </p>
         )}
-        {orders.length > 0 && (
+        {filteredOrders.length > 0 && (
           <div className="table-wrap">
             <table>
               <thead>
@@ -480,7 +527,7 @@ export default function OrdersPage() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
+                {filteredOrders.map((order) => (
                   <tr
                     key={order.id}
                     className="clickable"

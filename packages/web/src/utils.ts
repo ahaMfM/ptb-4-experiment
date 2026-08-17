@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useState } from "react";
+
 const priceFormatter = new Intl.NumberFormat(undefined, {
   style: "currency",
   currency: "EUR",
@@ -64,6 +66,46 @@ export function downloadFile(
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * String state that mirrors a URL query parameter, so a reload keeps the
+ * current selection and copying the address bar shares it as-is. The
+ * parameter is omitted from the URL while it equals `defaultValue`.
+ */
+export function useUrlParam(
+  name: string,
+  defaultValue: string,
+): [string, (value: string) => void] {
+  const read = () =>
+    new URLSearchParams(window.location.search).get(name) ?? defaultValue;
+
+  const [value, setValue] = useState(read);
+
+  useEffect(() => {
+    const onPopState = () => setValue(read());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, defaultValue]);
+
+  const update = useCallback(
+    (next: string) => {
+      setValue(next);
+      const params = new URLSearchParams(window.location.search);
+      if (next === defaultValue) {
+        params.delete(name);
+      } else {
+        params.set(name, next);
+      }
+      const query = params.toString();
+      const url = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+      window.history.replaceState(window.history.state, "", url);
+    },
+    [name, defaultValue],
+  );
+
+  return [value, update];
 }
 
 /** Zod validation errors arrive as a JSON array in the message; show just the texts. */
