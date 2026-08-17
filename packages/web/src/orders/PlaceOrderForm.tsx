@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import type { Product } from "server/router";
+import QueryFeedback from "../components/QueryFeedback";
 import { readableError } from "../lib/errors";
 import { formatPrice } from "../lib/format";
 import { useTRPC } from "../trpc";
@@ -171,6 +172,10 @@ export default function PlaceOrderForm() {
         <div className="grid">
           <label className="full">
             Customer
+            <QueryFeedback
+              query={customersQuery}
+              errorPrefix="Could not load customers"
+            />
             <select
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
@@ -187,6 +192,10 @@ export default function PlaceOrderForm() {
         </div>
 
         <div className="order-lines">
+          <QueryFeedback
+            query={productsQuery}
+            errorPrefix="Could not load products"
+          />
           {lines.map((line, index) => (
             <OrderLineFields
               key={index}
