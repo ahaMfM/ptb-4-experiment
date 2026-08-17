@@ -11,6 +11,64 @@ type OrderLine = {
 
 const emptyLine: OrderLine = { productId: "", quantity: "1" };
 
+function ProductPreviewDialog({
+  productId,
+  onClose,
+}: {
+  productId: number;
+  onClose: () => void;
+}) {
+  const trpc = useTRPC();
+  const productsQuery = useQuery(trpc.product.list.queryOptions());
+  const product = productsQuery.data?.find((p) => p.id === productId);
+
+  return (
+    <div
+      className="overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="modal card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={product ? product.name : "Product preview"}
+      >
+        {productsQuery.isLoading && <p className="muted">Loading…</p>}
+        {productsQuery.isError && (
+          <p className="error">
+            Could not load product: {readableError(productsQuery.error.message)}
+          </p>
+        )}
+        {productsQuery.isSuccess && !product && (
+          <p className="error">This product no longer exists.</p>
+        )}
+        {product && (
+          <>
+            <img className="product-image" src={product.image} alt={product.name} />
+            <div className="product-title">
+              <h3>{product.name}</h3>
+              <span className="product-price">{formatPrice(product.price)}</span>
+            </div>
+            <p className="product-description">{product.description}</p>
+            <span
+              className={product.stock > 0 ? "stock-badge" : "stock-badge out-of-stock"}
+            >
+              {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
+            </span>
+          </>
+        )}
+        <div className="actions">
+          <button type="button" className="secondary" onClick={onClose} autoFocus>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OrderDetailDialog({
   orderId,
   onClose,
@@ -22,6 +80,7 @@ function OrderDetailDialog({
   const queryClient = useQueryClient();
   const detailQuery = useQuery(trpc.order.byId.queryOptions({ id: orderId }));
   const order = detailQuery.data;
+  const [previewProductId, setPreviewProductId] = useState<number | null>(null);
 
   const markShipped = useMutation(
     trpc.order.markShipped.mutationOptions({
@@ -120,8 +179,16 @@ function OrderDetailDialog({
                 </thead>
                 <tbody>
                   {order.items.map((item) => (
-                    <tr key={item.productId}>
-                      <td>{item.productName}</td>
+                    <tr
+                      key={item.productId}
+                      className="clickable"
+                      onClick={() => setPreviewProductId(item.productId)}
+                    >
+                      <td>
+                        <button type="button" className="link-button">
+                          {item.productName}
+                        </button>
+                      </td>
                       <td className="num">{item.quantity}</td>
                       <td className="num">{formatPrice(item.unitPrice)}</td>
                       <td className="num">
@@ -190,6 +257,14 @@ function OrderDetailDialog({
           </button>
         </div>
       </div>
+
+      {previewProductId !== null && (
+        <ProductPreviewDialog
+          key={previewProductId}
+          productId={previewProductId}
+          onClose={() => setPreviewProductId(null)}
+        />
+      )}
     </div>
   );
 }
