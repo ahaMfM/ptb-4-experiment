@@ -40,6 +40,10 @@ export default function CustomerDetailDialog({
           <a href={`mailto:${customer.email}`}>{customer.email}</a>
         </div>
         <div>
+          <span className="detail-label">VAT number</span>
+          {customer.vatNumber ?? <span className="muted">—</span>}
+        </div>
+        <div>
           <span className="detail-label">Customer since</span>
           {formatDate(customer.customerSince)}
         </div>

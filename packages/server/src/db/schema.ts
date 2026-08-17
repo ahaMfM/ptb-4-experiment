@@ -54,6 +54,7 @@ export const customers = pgTable("customers", {
   company: text("company").notNull(),
   address: text("address").notNull(),
   email: text("email").notNull(),
+  vatNumber: text("vat_number"),
   customerSince: date("customer_since").notNull(),
   /**
    * Who recorded the customer and when. Both stay null for entries from

@@ -12,6 +12,8 @@ export type CustomerFormValues = {
   company: string;
   address: string;
   email: string;
+  /** Not every customer gives us one. */
+  vatNumber: string;
   /** Plain calendar date, YYYY-MM-DD. */
   customerSince: string;
 };
@@ -22,6 +24,7 @@ export const emptyCustomerForm: CustomerFormValues = {
   company: "",
   address: "",
   email: "",
+  vatNumber: "",
   customerSince: todayUtc(),
 };
 
@@ -32,6 +35,7 @@ export function customerFormValues(customer: CustomerRecord): CustomerFormValues
     company: customer.company,
     address: customer.address,
     email: customer.email,
+    vatNumber: customer.vatNumber ?? "",
     customerSince: customer.customerSince,
   };
 }
@@ -76,6 +80,14 @@ export function CustomerFields({
           onChange={set("email")}
           placeholder="jane.doe@acme.example"
           required
+        />
+      </label>
+      <label>
+        VAT number
+        <input
+          value={form.vatNumber}
+          onChange={set("vatNumber")}
+          placeholder="DE123456789"
         />
       </label>
       <label>

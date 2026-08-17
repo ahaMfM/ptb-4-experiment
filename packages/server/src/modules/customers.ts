@@ -21,6 +21,8 @@ export type Customer = {
   company: string;
   address: string;
   email: string;
+  /** Not every customer gives us one. */
+  vatNumber: string | null;
   /** Plain calendar date, YYYY-MM-DD. */
   customerSince: string;
   /** Null for entries from before everyone signed in. */
@@ -49,6 +51,11 @@ const customerInput = z.object({
   company: z.string().trim().min(1, "Company is required"),
   address: z.string().trim().min(1, "Address is required"),
   email: z.email("A valid e-mail address is required"),
+  vatNumber: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => v || null),
   customerSince: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
 });
 
@@ -91,6 +98,7 @@ export const customerProcedures = {
           company: customers.company,
           address: customers.address,
           email: customers.email,
+          vatNumber: customers.vatNumber,
           customerSince: customers.customerSince,
           createdAt: customers.createdAt,
           // Who recorded the customer; null for old entries.

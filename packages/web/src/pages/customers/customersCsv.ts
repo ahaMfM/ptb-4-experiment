@@ -16,6 +16,7 @@ export function downloadCustomersCsv(list: readonly CustomerRecord[]): void {
       "Company",
       "Address",
       "E-mail",
+      "VAT number",
       "Customer since",
       "Recorded by",
       "Recorded at",
@@ -26,6 +27,7 @@ export function downloadCustomersCsv(list: readonly CustomerRecord[]): void {
       c.company,
       c.address,
       c.email,
+      c.vatNumber ?? "",
       c.customerSince,
       // Empty for entries from before we tracked who recorded what.
       c.recordedBy ?? "",
