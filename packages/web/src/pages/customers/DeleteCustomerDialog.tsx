@@ -41,7 +41,7 @@ export default function DeleteCustomerDialog({
     >
       This will permanently remove{" "}
       <strong>
-        {customer.contactName} ({customer.company})
+        {customer.firstName} {customer.familyName} ({customer.company})
       </strong>{" "}
       from the customer list. This cannot be undone.
     </ConfirmDeleteDialog>

@@ -17,7 +17,8 @@ import { protectedProcedure } from "../trpc.js";
 /** A customer as it is stored. */
 export type Customer = {
   id: number;
-  contactName: string;
+  firstName: string;
+  familyName: string;
   company: string;
   address: string;
   email: string;
@@ -45,7 +46,8 @@ export type StoredCustomer = Omit<Customer, "createdAt"> & {
 };
 
 const customerInput = z.object({
-  contactName: z.string().trim().min(1, "Contact name is required"),
+  firstName: z.string().trim().min(1, "First name is required"),
+  familyName: z.string().trim().min(1, "Family name is required"),
   company: z.string().trim().min(1, "Company is required"),
   address: z.string().trim().min(1, "Address is required"),
   email: z.email("A valid e-mail address is required"),
@@ -77,7 +79,7 @@ function likePattern(term: string): string {
 export const customerProcedures = {
   /**
    * The customer book, newest customer relationship first. `search` matches
-   * contact name or company, case-insensitively, as a substring.
+   * first name, family name or company, case-insensitively, as a substring.
    */
   list: protectedProcedure
     .input(z.object({ search: z.string().trim().optional() }).optional())
@@ -87,7 +89,8 @@ export const customerProcedures = {
       const rows = await db
         .select({
           id: customers.id,
-          contactName: customers.contactName,
+          firstName: customers.firstName,
+          familyName: customers.familyName,
           company: customers.company,
           address: customers.address,
           email: customers.email,
@@ -101,7 +104,8 @@ export const customerProcedures = {
         .where(
           pattern
             ? or(
-                ilike(customers.contactName, pattern),
+                ilike(customers.firstName, pattern),
+                ilike(customers.familyName, pattern),
                 ilike(customers.company, pattern),
               )
             : undefined,

@@ -73,7 +73,8 @@ type OrderCommon = {
 /** An order in the all-orders list, with the customer it belongs to. */
 export type OrderSummary = OrderCommon & {
   customerId: number;
-  contactName: string;
+  firstName: string;
+  familyName: string;
   company: string;
   items: OrderLine[];
 };
@@ -82,7 +83,7 @@ export type OrderSummary = OrderCommon & {
 export type OrderDetail = OrderCommon & {
   customer: Pick<
     Customer,
-    "id" | "contactName" | "company" | "address" | "email" | "customerSince"
+    "id" | "firstName" | "familyName" | "company" | "address" | "email" | "customerSince"
   >;
   items: OrderLine[];
 };
@@ -178,7 +179,8 @@ export const orderProcedures = {
         createdAt: orders.createdAt,
         status: orders.status,
         customerId: orders.customerId,
-        contactName: customers.contactName,
+        firstName: customers.firstName,
+        familyName: customers.familyName,
         company: customers.company,
         // Who recorded the order; null for old entries.
         recordedBy: users.name,
@@ -226,7 +228,8 @@ export const orderProcedures = {
           recordedBy: users.name,
           customer: {
             id: customers.id,
-            contactName: customers.contactName,
+            firstName: customers.firstName,
+            familyName: customers.familyName,
             company: customers.company,
             address: customers.address,
             email: customers.email,

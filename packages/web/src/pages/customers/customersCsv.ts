@@ -12,7 +12,8 @@ export function downloadCustomersCsv(list: readonly CustomerRecord[]): void {
     `customers-${todayUtc()}.csv`,
     [
       "ID",
-      "Contact person",
+      "First name",
+      "Family name",
       "Company",
       "Address",
       "E-mail",
@@ -22,7 +23,8 @@ export function downloadCustomersCsv(list: readonly CustomerRecord[]): void {
     ],
     list.map((c) => [
       c.id,
-      c.contactName,
+      c.firstName,
+      c.familyName,
       c.company,
       c.address,
       c.email,

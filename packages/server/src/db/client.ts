@@ -49,7 +49,8 @@ export async function initDb(): Promise<void> {
     );
     CREATE TABLE IF NOT EXISTS "customers" (
       "id" serial PRIMARY KEY,
-      "contact_name" text NOT NULL,
+      "first_name" text NOT NULL,
+      "family_name" text NOT NULL,
       "company" text NOT NULL,
       "address" text NOT NULL,
       "email" text NOT NULL,
@@ -80,6 +81,30 @@ export async function initDb(): Promise<void> {
     ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "created_by_id" integer REFERENCES "users"("id");
     ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "created_by_id" integer REFERENCES "users"("id");
     ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "created_at" timestamptz;
+    -- Upgrade databases from before the contact person's name was split into a
+    -- first and family name: split the old single field on its first space
+    -- and drop it, so the split only ever runs once.
+    ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "first_name" text;
+    ALTER TABLE "customers" ADD COLUMN IF NOT EXISTS "family_name" text;
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'customers' AND column_name = 'contact_name'
+      ) THEN
+        UPDATE "customers" SET
+          "first_name" = split_part("contact_name", ' ', 1),
+          "family_name" = CASE
+            WHEN position(' ' in "contact_name") > 0
+              THEN trim(substring("contact_name" from position(' ' in "contact_name") + 1))
+            ELSE ''
+          END
+        WHERE "first_name" IS NULL;
+        ALTER TABLE "customers" ALTER COLUMN "first_name" SET NOT NULL;
+        ALTER TABLE "customers" ALTER COLUMN "family_name" SET NOT NULL;
+        ALTER TABLE "customers" DROP COLUMN "contact_name";
+      END IF;
+    END $$;
     CREATE TABLE IF NOT EXISTS "order_items" (
       "id" serial PRIMARY KEY,
       "order_id" integer NOT NULL REFERENCES "orders"("id") ON DELETE CASCADE,

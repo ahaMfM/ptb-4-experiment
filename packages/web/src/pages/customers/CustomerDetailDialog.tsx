@@ -24,7 +24,11 @@ export default function CustomerDetailDialog({
   const orders = ordersQuery.data ?? [];
 
   return (
-    <Modal label={`Customer ${customer.contactName}`} wide onClose={onClose}>
+    <Modal
+      label={`Customer ${customer.firstName} ${customer.familyName}`}
+      wide
+      onClose={onClose}
+    >
       <header className="order-header">
         <h2>{customer.company}</h2>
         <span className="muted">Customer #{customer.id}</span>
@@ -32,8 +36,12 @@ export default function CustomerDetailDialog({
 
       <div className="detail-grid">
         <div>
-          <span className="detail-label">Contact person</span>
-          {customer.contactName}
+          <span className="detail-label">First name</span>
+          {customer.firstName}
+        </div>
+        <div>
+          <span className="detail-label">Family name</span>
+          {customer.familyName}
         </div>
         <div>
           <span className="detail-label">E-mail</span>

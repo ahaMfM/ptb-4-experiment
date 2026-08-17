@@ -133,7 +133,8 @@ export default function CustomersPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Contact person</th>
+                  <th>First name</th>
+                  <th>Family name</th>
                   <th>Company</th>
                   <th>Address</th>
                   <th>E-mail</th>
@@ -147,7 +148,8 @@ export default function CustomersPage() {
               <tbody>
                 {customers.map((c) => (
                   <tr key={c.id} className="clickable" onClick={() => setViewing(c)}>
-                    <td>{c.contactName}</td>
+                    <td>{c.firstName}</td>
+                    <td>{c.familyName}</td>
                     <td>{c.company}</td>
                     <td className="address">{c.address}</td>
                     <td>

@@ -50,7 +50,8 @@ export const sessions = pgTable("sessions", {
 
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
-  contactName: text("contact_name").notNull(),
+  firstName: text("first_name").notNull(),
+  familyName: text("family_name").notNull(),
   company: text("company").notNull(),
   address: text("address").notNull(),
   email: text("email").notNull(),

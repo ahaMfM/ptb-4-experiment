@@ -152,7 +152,9 @@ export default function InvoicesPage() {
                     <td>
                       {invoice.company}
                       <br />
-                      <span className="muted">{invoice.contactName}</span>
+                      <span className="muted">
+                        {invoice.firstName} {invoice.familyName}
+                      </span>
                     </td>
                     <td>{formatDateTime(invoice.issuedAt)}</td>
                     <td className="num">{formatPrice(invoice.amount)}</td>

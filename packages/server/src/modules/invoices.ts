@@ -30,7 +30,8 @@ export type InvoiceRecord = Omit<Invoice, "issuedAt"> & {
   /** ISO timestamp. */
   issuedAt: string;
   customerId: number;
-  contactName: string;
+  firstName: string;
+  familyName: string;
   company: string;
 };
 
@@ -98,7 +99,8 @@ export const invoiceProcedures = {
           issuedAt: invoices.issuedAt,
           paidAt: invoices.paidAt,
           customerId: customers.id,
-          contactName: customers.contactName,
+          firstName: customers.firstName,
+          familyName: customers.familyName,
           company: customers.company,
         })
         .from(invoices)

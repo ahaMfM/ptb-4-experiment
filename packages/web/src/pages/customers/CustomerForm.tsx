@@ -8,7 +8,8 @@ import { todayUtc } from "../../lib/format";
  */
 
 export type CustomerFormValues = {
-  contactName: string;
+  firstName: string;
+  familyName: string;
   company: string;
   address: string;
   email: string;
@@ -18,7 +19,8 @@ export type CustomerFormValues = {
 
 /** A blank form; a new customer is a customer as of today. */
 export const emptyCustomerForm: CustomerFormValues = {
-  contactName: "",
+  firstName: "",
+  familyName: "",
   company: "",
   address: "",
   email: "",
@@ -28,7 +30,8 @@ export const emptyCustomerForm: CustomerFormValues = {
 /** Fill the form from an existing customer, for editing. */
 export function customerFormValues(customer: CustomerRecord): CustomerFormValues {
   return {
-    contactName: customer.contactName,
+    firstName: customer.firstName,
+    familyName: customer.familyName,
     company: customer.company,
     address: customer.address,
     email: customer.email,
@@ -51,11 +54,20 @@ export function CustomerFields({
   return (
     <div className="grid">
       <label>
-        Contact person
+        First name
         <input
-          value={form.contactName}
-          onChange={set("contactName")}
-          placeholder="Jane Doe"
+          value={form.firstName}
+          onChange={set("firstName")}
+          placeholder="Jane"
+          required
+        />
+      </label>
+      <label>
+        Family name
+        <input
+          value={form.familyName}
+          onChange={set("familyName")}
+          placeholder="Doe"
           required
         />
       </label>
