@@ -3,6 +3,7 @@ import { readableError } from "../../lib/errors";
 import { formatDate, formatDateTime, formatPrice } from "../../lib/format";
 import { useTRPC } from "../../trpc";
 import Modal from "../../ui/Modal";
+import RecordedBy from "../../ui/RecordedBy";
 import StatusBadge from "../../ui/StatusBadge";
 import { useCancelOrder, useMarkShipped } from "./orderActions";
 
@@ -40,11 +41,14 @@ export default function OrderDetailDialog({
 
       {order && (
         <>
-          <p className="muted">
-            Placed on {formatDateTime(order.createdAt)}
-            {/* Who recorded the order — unknown for old entries. */}
-            {order.recordedBy && <> · recorded by {order.recordedBy}</>}
-          </p>
+          <p className="muted">Placed on {formatDateTime(order.createdAt)}</p>
+
+          <div className="detail-grid">
+            <div>
+              <span className="detail-label">Recorded by</span>
+              <RecordedBy who={order.recordedBy} when={order.createdAt} />
+            </div>
+          </div>
 
           <h3>Customer</h3>
           <div className="detail-grid">

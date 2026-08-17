@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import type { CustomerRecord } from "server/router";
 import { readableError } from "../../lib/errors";
-import { formatDate, formatDateTime, todayUtc } from "../../lib/format";
+import { formatDate, todayUtc } from "../../lib/format";
 import { useTRPC } from "../../trpc";
+import RecordedBy from "../../ui/RecordedBy";
 import CustomerDetailDialog from "./CustomerDetailDialog";
 import { CustomerFields, emptyCustomerForm } from "./CustomerForm";
 import { downloadCustomersCsv } from "./customersCsv";
@@ -157,22 +158,7 @@ export default function CustomersPage() {
                     </td>
                     <td>{formatDate(c.customerSince)}</td>
                     <td>
-                      {c.recordedBy ? (
-                        <>
-                          {c.recordedBy}
-                          {c.createdAt && (
-                            <>
-                              <br />
-                              <span className="muted">
-                                {formatDateTime(c.createdAt)}
-                              </span>
-                            </>
-                          )}
-                        </>
-                      ) : (
-                        // Entries from before everyone signed in: unknown.
-                        <span className="muted">—</span>
-                      )}
+                      <RecordedBy who={c.recordedBy} when={c.createdAt} />
                     </td>
                     <td>
                       <span className="row-actions">

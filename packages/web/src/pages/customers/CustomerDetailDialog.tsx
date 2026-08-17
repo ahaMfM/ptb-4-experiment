@@ -4,6 +4,7 @@ import { readableError } from "../../lib/errors";
 import { formatDate, formatDateTime, formatPrice } from "../../lib/format";
 import { useTRPC } from "../../trpc";
 import Modal from "../../ui/Modal";
+import RecordedBy from "../../ui/RecordedBy";
 import StatusBadge from "../../ui/StatusBadge";
 
 /**
@@ -49,20 +50,7 @@ export default function CustomerDetailDialog({
         </div>
         <div>
           <span className="detail-label">Recorded by</span>
-          {customer.recordedBy ? (
-            <>
-              {customer.recordedBy}
-              {customer.createdAt && (
-                <span className="muted">
-                  {" "}
-                  on {formatDateTime(customer.createdAt)}
-                </span>
-              )}
-            </>
-          ) : (
-            // Entries from before everyone signed in: we do not know.
-            <span className="muted">—</span>
-          )}
+          <RecordedBy who={customer.recordedBy} when={customer.createdAt} />
         </div>
       </div>
 
@@ -98,7 +86,7 @@ export default function CustomerDetailDialog({
                   <td>#{order.id}</td>
                   <td>{formatDateTime(order.createdAt)}</td>
                   <td>
-                    {order.recordedBy ?? <span className="muted">—</span>}
+                    <RecordedBy who={order.recordedBy} when={order.createdAt} />
                   </td>
                   <td>
                     {order.items

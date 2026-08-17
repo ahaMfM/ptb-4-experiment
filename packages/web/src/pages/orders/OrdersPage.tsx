@@ -3,6 +3,7 @@ import { useState } from "react";
 import { readableError } from "../../lib/errors";
 import { formatDateTime, formatPrice } from "../../lib/format";
 import { useTRPC } from "../../trpc";
+import RecordedBy from "../../ui/RecordedBy";
 import StatusBadge from "../../ui/StatusBadge";
 import { useCancelOrder, useMarkShipped } from "./orderActions";
 import OrderDetailDialog from "./OrderDetailDialog";
@@ -93,8 +94,7 @@ export default function OrdersPage() {
                     </td>
                     <td>{formatDateTime(order.createdAt)}</td>
                     <td>
-                      {/* Unknown for orders from before everyone signed in. */}
-                      {order.recordedBy ?? <span className="muted">—</span>}
+                      <RecordedBy who={order.recordedBy} when={order.createdAt} />
                     </td>
                     <td>
                       {order.items
