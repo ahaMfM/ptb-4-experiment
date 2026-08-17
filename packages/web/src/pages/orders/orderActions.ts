@@ -40,17 +40,56 @@ export function usePlaceOrder({
   );
 }
 
+/**
+ * Optimistically set an order's status in both the list and detail caches,
+ * so shipping/cancelling shows up the instant the user asks for it instead of
+ * waiting on the round trip. Returns the previous cache contents so a failed
+ * mutation can put them back exactly as they were.
+ */
+function setOrderStatus(
+  queryClient: ReturnType<typeof useQueryClient>,
+  trpc: ReturnType<typeof useTRPC>,
+  id: number,
+  status: "shipped" | "cancelled",
+) {
+  const listKey = trpc.order.list.queryKey();
+  const detailKey = trpc.order.byId.queryKey({ id });
+
+  const previousList = queryClient.getQueryData(listKey);
+  const previousDetail = queryClient.getQueryData(detailKey);
+
+  queryClient.setQueryData(listKey, (orders) =>
+    orders?.map((order) => (order.id === id ? { ...order, status } : order)),
+  );
+  queryClient.setQueryData(detailKey, (order) =>
+    order ? { ...order, status } : order,
+  );
+
+  return { listKey, detailKey, previousList, previousDetail };
+}
+
 export function useMarkShipped() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   return useMutation(
     trpc.order.markShipped.mutationOptions({
-      onSuccess: async (order) => {
+      onMutate: async ({ id }) => {
+        await Promise.all([
+          queryClient.cancelQueries(trpc.order.list.queryFilter()),
+          queryClient.cancelQueries(trpc.order.byId.queryFilter({ id })),
+        ]);
+        return setOrderStatus(queryClient, trpc, id, "shipped");
+      },
+      onError: (_err, _vars, context) => {
+        if (!context) return;
+        queryClient.setQueryData(context.listKey, context.previousList);
+        queryClient.setQueryData(context.detailKey, context.previousDetail);
+      },
+      onSettled: async (order, _err, variables) => {
+        const id = order?.id ?? variables.id;
         await Promise.all([
           queryClient.invalidateQueries(trpc.order.list.queryFilter()),
-          queryClient.invalidateQueries(
-            trpc.order.byId.queryFilter({ id: order.id }),
-          ),
+          queryClient.invalidateQueries(trpc.order.byId.queryFilter({ id })),
           queryClient.invalidateQueries(trpc.invoice.pathFilter()),
         ]);
       },
@@ -63,12 +102,23 @@ export function useCancelOrder() {
   const queryClient = useQueryClient();
   return useMutation(
     trpc.order.cancel.mutationOptions({
-      onSuccess: async (order) => {
+      onMutate: async ({ id }) => {
+        await Promise.all([
+          queryClient.cancelQueries(trpc.order.list.queryFilter()),
+          queryClient.cancelQueries(trpc.order.byId.queryFilter({ id })),
+        ]);
+        return setOrderStatus(queryClient, trpc, id, "cancelled");
+      },
+      onError: (_err, _vars, context) => {
+        if (!context) return;
+        queryClient.setQueryData(context.listKey, context.previousList);
+        queryClient.setQueryData(context.detailKey, context.previousDetail);
+      },
+      onSettled: async (order, _err, variables) => {
+        const id = order?.id ?? variables.id;
         await Promise.all([
           queryClient.invalidateQueries(trpc.order.list.queryFilter()),
-          queryClient.invalidateQueries(
-            trpc.order.byId.queryFilter({ id: order.id }),
-          ),
+          queryClient.invalidateQueries(trpc.order.byId.queryFilter({ id })),
           queryClient.invalidateQueries(trpc.product.list.queryFilter()),
         ]);
       },
