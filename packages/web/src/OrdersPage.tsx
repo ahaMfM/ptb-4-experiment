@@ -62,6 +62,19 @@ function OrderDetailDialog({
     }),
   );
 
+  const cancelOrder = useMutation(
+    trpc.order.cancel.mutationOptions({
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries(trpc.order.byId.queryFilter({ id: orderId })),
+          queryClient.invalidateQueries(trpc.order.list.queryFilter()),
+          // Cancelling puts the ordered quantities back on stock.
+          queryClient.invalidateQueries(trpc.product.list.queryFilter()),
+        ]);
+      },
+    }),
+  );
+
   return (
     <div
       className="overlay"
@@ -150,15 +163,41 @@ function OrderDetailDialog({
         {markShipped.isError && (
           <p className="error">{readableError(markShipped.error.message)}</p>
         )}
+        {cancelOrder.isError && (
+          <p className="error">{readableError(cancelOrder.error.message)}</p>
+        )}
+        {cancelOrder.isSuccess && (
+          <p className="success">
+            Order #{orderId} was cancelled. The products are back on stock.
+          </p>
+        )}
 
         <div className="actions">
           {order?.status === "open" && (
             <button
               type="button"
               onClick={() => markShipped.mutate({ id: orderId })}
-              disabled={markShipped.isPending}
+              disabled={markShipped.isPending || cancelOrder.isPending}
             >
               {markShipped.isPending ? "Marking as shipped…" : "Mark as shipped"}
+            </button>
+          )}
+          {order?.status === "open" && (
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Cancel order #${orderId}? The ordered products go back on stock.`,
+                  )
+                ) {
+                  cancelOrder.mutate({ id: orderId });
+                }
+              }}
+              disabled={cancelOrder.isPending || markShipped.isPending}
+            >
+              {cancelOrder.isPending ? "Cancelling…" : "Cancel order"}
             </button>
           )}
           <button type="button" className="secondary" onClick={onClose} autoFocus>
@@ -219,6 +258,21 @@ export default function OrdersPage() {
           queryClient.invalidateQueries(
             trpc.order.byId.queryFilter({ id: order.id }),
           ),
+        ]);
+      },
+    }),
+  );
+
+  const cancelOrder = useMutation(
+    trpc.order.cancel.mutationOptions({
+      onSuccess: async (order) => {
+        await Promise.all([
+          queryClient.invalidateQueries(trpc.order.list.queryFilter()),
+          queryClient.invalidateQueries(
+            trpc.order.byId.queryFilter({ id: order.id }),
+          ),
+          // Cancelling puts the ordered quantities back on stock.
+          queryClient.invalidateQueries(trpc.product.list.queryFilter()),
         ]);
       },
     }),
@@ -402,6 +456,17 @@ export default function OrdersPage() {
             {readableError(markShipped.error.message)}
           </p>
         )}
+        {cancelOrder.isError && (
+          <p className="error">
+            Could not cancel the order: {readableError(cancelOrder.error.message)}
+          </p>
+        )}
+        {cancelOrder.isSuccess && (
+          <p className="success">
+            Order #{cancelOrder.data.id} was cancelled. The products are back on
+            stock.
+          </p>
+        )}
         {orders.length > 0 && (
           <div className="table-wrap">
             <table>
@@ -451,9 +516,28 @@ export default function OrdersPage() {
                               e.stopPropagation();
                               markShipped.mutate({ id: order.id });
                             }}
-                            disabled={markShipped.isPending}
+                            disabled={markShipped.isPending || cancelOrder.isPending}
                           >
                             Mark as shipped
+                          </button>
+                        )}
+                        {order.status === "open" && (
+                          <button
+                            type="button"
+                            className="link-button danger-link"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (
+                                window.confirm(
+                                  `Cancel order #${order.id}? The ordered products go back on stock.`,
+                                )
+                              ) {
+                                cancelOrder.mutate({ id: order.id });
+                              }
+                            }}
+                            disabled={cancelOrder.isPending || markShipped.isPending}
+                          >
+                            Cancel
                           </button>
                         )}
                         <button

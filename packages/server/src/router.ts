@@ -370,6 +370,61 @@ export const appRouter = t.router({
       });
     }),
     /**
+     * Cancel an order that has not been shipped yet (e.g. the customer
+     * called and cancelled). The ordered quantities go back on stock.
+     * Only open orders can be cancelled: once shipped, the goods have
+     * left the warehouse and a plain cancellation no longer applies.
+     */
+    cancel: t.procedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        return db.transaction(async (tx) => {
+          // The status guard makes the update a no-op unless the order is
+          // still open, so a concurrent ship/cancel can never restock twice.
+          const [updated] = await tx
+            .update(orders)
+            .set({ status: "cancelled" })
+            .where(and(eq(orders.id, input.id), eq(orders.status, "open")))
+            .returning();
+          if (!updated) {
+            const [existing] = await tx
+              .select({ status: orders.status })
+              .from(orders)
+              .where(eq(orders.id, input.id));
+            if (!existing) {
+              throw new TRPCError({
+                code: "NOT_FOUND",
+                message: "Order not found",
+              });
+            }
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                existing.status === "cancelled"
+                  ? `Order #${input.id} is already cancelled.`
+                  : `Order #${input.id} has already been ${existing.status} and can no longer be cancelled.`,
+            });
+          }
+
+          // Return every ordered quantity to stock.
+          const items = await tx
+            .select({
+              productId: orderItems.productId,
+              quantity: orderItems.quantity,
+            })
+            .from(orderItems)
+            .where(eq(orderItems.orderId, input.id));
+          for (const item of items) {
+            await tx
+              .update(products)
+              .set({ stock: sql`${products.stock} + ${item.quantity}` })
+              .where(eq(products.id, item.productId));
+          }
+
+          return { id: updated.id, status: updated.status };
+        });
+      }),
+    /**
      * Mark an order as sent out. Only open orders can be shipped, so the
      * status filter doubles as a guard against double-shipping.
      */
