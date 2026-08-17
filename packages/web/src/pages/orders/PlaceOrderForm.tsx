@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import { readableError } from "../../lib/errors";
 import { formatPrice } from "../../lib/format";
 import { useTRPC } from "../../trpc";
 import { usePlaceOrder } from "./orderActions";
@@ -94,8 +95,20 @@ export default function PlaceOrderForm() {
   return (
     <section className="card">
       <h2>Place an order</h2>
+      {customersQuery.isLoading && <p className="muted">Loading customers…</p>}
+      {customersQuery.isError && (
+        <p className="error">
+          Could not load customers: {readableError(customersQuery.error.message)}
+        </p>
+      )}
       {customersQuery.isSuccess && customers.length === 0 && (
         <p className="muted">Add a customer first to place an order.</p>
+      )}
+      {productsQuery.isLoading && <p className="muted">Loading products…</p>}
+      {productsQuery.isError && (
+        <p className="error">
+          Could not load products: {readableError(productsQuery.error.message)}
+        </p>
       )}
       {productsQuery.isSuccess && products.length === 0 && (
         <p className="muted">Add a product first to place an order.</p>
@@ -108,6 +121,7 @@ export default function PlaceOrderForm() {
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
               required
+              disabled={!customersQuery.isSuccess}
             >
               <option value="">Choose a customer…</option>
               {customers.map((c) => (
@@ -132,6 +146,7 @@ export default function PlaceOrderForm() {
                       setLine(index, { productId: e.target.value })
                     }
                     required
+                    disabled={!productsQuery.isSuccess}
                   >
                     <option value="">Choose a product…</option>
                     {products.map((p) => (
