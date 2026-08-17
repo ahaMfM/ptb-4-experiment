@@ -22,6 +22,16 @@ import {
  */
 
 /**
+ * What a team member may do. "member" can do everything, as before; "viewer"
+ * can look at customers, products, orders and invoices but cannot change
+ * anything. New team members are "member" unless said otherwise, so everyone
+ * set up so far — and anyone added without specifying a role — keeps working
+ * exactly as today.
+ */
+export const USER_ROLES = ["member", "viewer"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+/**
  * The people on the team who use the application. Accounts are set up from
  * within the application by someone who is already signed in — there is no
  * self-registration and no password recovery.
@@ -31,6 +41,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  role: text("role").$type<UserRole>().notNull().default("member"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

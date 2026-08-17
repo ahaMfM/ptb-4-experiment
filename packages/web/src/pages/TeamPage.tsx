@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import type { UserRole } from "server/router";
+import { useCanWrite } from "../lib/currentUser";
 import { readableError } from "../lib/errors";
 import { formatDateTime } from "../lib/format";
 import { useTRPC } from "../trpc";
@@ -8,9 +10,20 @@ type TeamFormValues = {
   name: string;
   username: string;
   password: string;
+  role: UserRole;
 };
 
-const emptyForm: TeamFormValues = { name: "", username: "", password: "" };
+const emptyForm: TeamFormValues = {
+  name: "",
+  username: "",
+  password: "",
+  role: "member",
+};
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  member: "Full access",
+  viewer: "Read-only",
+};
 
 /**
  * The people who can sign in. We set the people up ourselves: anyone who is
@@ -20,6 +33,7 @@ const emptyForm: TeamFormValues = { name: "", username: "", password: "" };
 export default function TeamPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [form, setForm] = useState<TeamFormValues>(emptyForm);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
 
@@ -50,59 +64,73 @@ export default function TeamPage() {
 
   return (
     <>
-      <section className="card">
-        <h2>Add a person</h2>
-        <form onSubmit={submit}>
-          <div className="grid">
-            <label>
-              Name
-              <input
-                value={form.name}
-                onChange={set("name")}
-                placeholder="Jane Doe"
-                required
-              />
-            </label>
-            <label>
-              Username
-              <input
-                value={form.username}
-                onChange={set("username")}
-                placeholder="jane"
-                autoComplete="off"
-                required
-              />
-            </label>
-            <label>
-              Password
-              <input
-                type="text"
-                value={form.password}
-                onChange={set("password")}
-                autoComplete="off"
-                required
-              />
-            </label>
-          </div>
-          <p className="muted">
-            Tell the person their username and password directly — there is no
-            password recovery.
-          </p>
-          {create.isError && (
-            <p className="error" role="alert">
-              {readableError(create.error.message)}
+      {canWrite && (
+        <section className="card">
+          <h2>Add a person</h2>
+          <form onSubmit={submit}>
+            <div className="grid">
+              <label>
+                Name
+                <input
+                  value={form.name}
+                  onChange={set("name")}
+                  placeholder="Jane Doe"
+                  required
+                />
+              </label>
+              <label>
+                Username
+                <input
+                  value={form.username}
+                  onChange={set("username")}
+                  placeholder="jane"
+                  autoComplete="off"
+                  required
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  type="text"
+                  value={form.password}
+                  onChange={set("password")}
+                  autoComplete="off"
+                  required
+                />
+              </label>
+              <label>
+                Access
+                <select
+                  value={form.role}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, role: e.target.value as UserRole }))
+                  }
+                >
+                  <option value="member">Full access</option>
+                  <option value="viewer">Read-only — can look, not change anything</option>
+                </select>
+              </label>
+            </div>
+            <p className="muted">
+              Tell the person their username and password directly — there is no
+              password recovery.
             </p>
-          )}
-          {lastAdded && (
-            <p className="success" role="status">
-              {lastAdded} can now sign in.
-            </p>
-          )}
-          <button type="submit" disabled={create.isPending}>
-            {create.isPending ? "Adding…" : "Add person"}
-          </button>
-        </form>
-      </section>
+            {create.isError && (
+              <p className="error" role="alert">
+                {readableError(create.error.message)}
+              </p>
+            )}
+            {lastAdded && (
+              <p className="success" role="status">
+                {lastAdded} can now sign in.
+              </p>
+            )}
+            <button type="submit" disabled={create.isPending}>
+              {create.isPending ? "Adding…" : "Add person"}
+            </button>
+          </form>
+        </section>
+      )}
 
       <section className="card">
         <h2>
@@ -122,6 +150,7 @@ export default function TeamPage() {
                 <tr>
                   <th>Name</th>
                   <th>Username</th>
+                  <th>Access</th>
                   <th>Added</th>
                 </tr>
               </thead>
@@ -130,6 +159,7 @@ export default function TeamPage() {
                   <tr key={user.id}>
                     <td>{user.name}</td>
                     <td>{user.username}</td>
+                    <td>{ROLE_LABELS[user.role]}</td>
                     <td>{formatDateTime(user.createdAt)}</td>
                   </tr>
                 ))}

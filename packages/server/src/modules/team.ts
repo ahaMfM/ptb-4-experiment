@@ -3,9 +3,9 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db/client.js";
 import { isUniqueViolation } from "../db/errors.js";
-import { users } from "../db/schema.js";
+import { USER_ROLES, users, type UserRole } from "../db/schema.js";
 import { hashPassword, verifyPassword } from "../password.js";
-import { protectedProcedure } from "../trpc.js";
+import { protectedProcedure, writeProcedure } from "../trpc.js";
 
 /**
  * The people who may sign in. This module owns the `users` table: nothing
@@ -21,6 +21,7 @@ export type PublicUser = {
   id: number;
   name: string;
   username: string;
+  role: UserRole;
 };
 
 /** A user as the Team page lists them, with the moment they were added. */
@@ -40,6 +41,9 @@ const userInput = z.object({
       "Username may only contain letters, numbers, dots, dashes and underscores",
     ),
   password: z.string().min(4, "Password must be at least 4 characters"),
+  /** Defaults to full access, so a team member set up without saying otherwise
+   * keeps working exactly as everyone does today. */
+  role: z.enum(USER_ROLES).default("member"),
 });
 
 /**
@@ -53,7 +57,7 @@ export async function verifyCredentials(
 ): Promise<PublicUser | null> {
   const [user] = await db.select().from(users).where(eq(users.username, username));
   if (!user || !verifyPassword(password, user.passwordHash)) return null;
-  return { id: user.id, name: user.name, username: user.username };
+  return { id: user.id, name: user.name, username: user.username, role: user.role };
 }
 
 /**
@@ -85,6 +89,7 @@ export const teamProcedures = {
         id: users.id,
         name: users.name,
         username: users.username,
+        role: users.role,
         createdAt: users.createdAt,
       })
       .from(users)
@@ -95,11 +100,12 @@ export const teamProcedures = {
   /**
    * Set up a new team member. There is no self-registration: only someone
    * who is already signed in can add a person, and passes the credentials
-   * on to them directly.
+   * on to them directly. Left unspecified, the new person can do everything,
+   * same as everyone set up so far.
    *
    * Fails with CONFLICT when the username is already taken.
    */
-  create: protectedProcedure
+  create: writeProcedure
     .input(userInput)
     .mutation(async ({ input }): Promise<TeamMember> => {
       let created;
@@ -110,11 +116,13 @@ export const teamProcedures = {
             name: input.name,
             username: input.username,
             passwordHash: hashPassword(input.password),
+            role: input.role,
           })
           .returning({
             id: users.id,
             name: users.name,
             username: users.username,
+            role: users.role,
             createdAt: users.createdAt,
           });
       } catch (err) {

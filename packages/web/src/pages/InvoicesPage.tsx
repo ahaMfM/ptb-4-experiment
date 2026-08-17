@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import { useCanWrite } from "../lib/currentUser";
 import { readableError } from "../lib/errors";
 import {
   formatDate,
@@ -70,6 +71,7 @@ function RecordPaymentForm({
  */
 export default function InvoicesPage() {
   const trpc = useTRPC();
+  const canWrite = useCanWrite();
   const [unpaidOnly, setUnpaidOnly] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -162,11 +164,13 @@ export default function InvoicesPage() {
                     <td>
                       {invoice.paidAt ? (
                         <span>Paid on {formatDate(invoice.paidAt)}</span>
-                      ) : (
+                      ) : canWrite ? (
                         <RecordPaymentForm
                           invoiceId={invoice.id}
                           onDone={setSuccess}
                         />
+                      ) : (
+                        <span className="muted">Unpaid</span>
                       )}
                     </td>
                   </tr>

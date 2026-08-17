@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, type Tx } from "../db/client.js";
 import { customers, invoices, orders } from "../db/schema.js";
-import { protectedProcedure } from "../trpc.js";
+import { protectedProcedure, writeProcedure } from "../trpc.js";
 
 /**
  * Receivables. This module owns the `invoices` table.
@@ -115,7 +115,7 @@ export const invoiceProcedures = {
    * already recorded as paid, and with NOT_FOUND when there is no such
    * invoice.
    */
-  markPaid: protectedProcedure
+  markPaid: writeProcedure
     .input(z.object({ id: z.number().int().positive(), paidAt: paidAtInput }))
     .mutation(async ({ input }): Promise<Invoice> => {
       // The `paid_at IS NULL` guard is what makes this one-time, even when

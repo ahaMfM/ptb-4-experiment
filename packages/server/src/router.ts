@@ -35,6 +35,8 @@ export type AppRouter = typeof appRouter;
  * whatever the database happens to return.
  */
 export type { PublicUser, TeamMember } from "./modules/team.js";
+export { USER_ROLES } from "./db/schema.js";
+export type { UserRole } from "./db/schema.js";
 export type { Customer, CustomerRecord } from "./modules/customers.js";
 export type { Product } from "./modules/catalog.js";
 export type {

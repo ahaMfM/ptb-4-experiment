@@ -53,6 +53,7 @@ export async function createContext({
       id: users.id,
       name: users.name,
       username: users.username,
+      role: users.role,
       expiresAt: sessions.expiresAt,
     })
     .from(sessions)
@@ -65,7 +66,7 @@ export async function createContext({
   }
 
   return {
-    user: { id: row.id, name: row.name, username: row.username },
+    user: { id: row.id, name: row.name, username: row.username, role: row.role },
     sessionToken: token,
     resHeaders,
   };

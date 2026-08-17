@@ -29,3 +29,18 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
   }
   return next({ ctx: { ...ctx, user: ctx.user } });
 });
+
+/**
+ * For procedures that add, change or remove something. A viewer can look at
+ * everything but not act on it, so this is `protectedProcedure` plus one more
+ * check; every other role may proceed exactly as before.
+ */
+export const writeProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role === "viewer") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Your account can only look, not make changes.",
+    });
+  }
+  return next();
+});

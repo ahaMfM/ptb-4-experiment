@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { PublicUser } from "server/router";
+import { CurrentUserProvider } from "./lib/currentUser";
 import CustomersPage from "./pages/customers/CustomersPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import OrdersPage from "./pages/orders/OrdersPage";
@@ -101,60 +102,63 @@ function BackOffice({
   const current = PAGES.find((entry) => entry.id === page)!;
 
   return (
-    <main>
-      <div className="topbar">
-        <span className="muted">
-          Signed in as <strong>{user.name}</strong>
-        </span>
-        <button
-          type="button"
-          className="link-button"
-          onClick={onSignOut}
-          disabled={signingOut}
-        >
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
-      </div>
-
-      <nav className="tabs" aria-label="Main navigation">
-        {PAGES.map((entry) => (
+    <CurrentUserProvider user={user}>
+      <main>
+        <div className="topbar">
+          <span className="muted">
+            Signed in as <strong>{user.name}</strong>
+            {user.role === "viewer" && <span className="muted"> (read-only)</span>}
+          </span>
           <button
-            key={entry.id}
             type="button"
-            className={page === entry.id ? "tab active" : "tab"}
-            onClick={() => setPage(entry.id)}
+            className="link-button"
+            onClick={onSignOut}
+            disabled={signingOut}
           >
-            {entry.label}
-            {entry.id === "invoices" && unpaidQuery.isSuccess && unpaidCount > 0 && (
-              <span
-                className="tab-badge"
-                aria-label={`${unpaidCount} unpaid ${unpaidCount === 1 ? "invoice" : "invoices"}`}
-              >
-                {unpaidCount}
-              </span>
-            )}
+            {signingOut ? "Signing out…" : "Sign out"}
           </button>
-        ))}
-      </nav>
+        </div>
 
-      {page === HOME && unpaidQuery.isSuccess && (
-        <button
-          type="button"
-          className={
-            unpaidCount > 0 ? "unpaid-banner has-unpaid" : "unpaid-banner"
-          }
-          onClick={() => setPage("invoices")}
-        >
-          {unpaidCount === 0
-            ? "No unpaid invoices — everything has been paid."
-            : unpaidCount === 1
-              ? "1 invoice is currently unpaid."
-              : `${unpaidCount} invoices are currently unpaid.`}
-          <span className="unpaid-banner-link">View invoices</span>
-        </button>
-      )}
+        <nav className="tabs" aria-label="Main navigation">
+          {PAGES.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              className={page === entry.id ? "tab active" : "tab"}
+              onClick={() => setPage(entry.id)}
+            >
+              {entry.label}
+              {entry.id === "invoices" && unpaidQuery.isSuccess && unpaidCount > 0 && (
+                <span
+                  className="tab-badge"
+                  aria-label={`${unpaidCount} unpaid ${unpaidCount === 1 ? "invoice" : "invoices"}`}
+                >
+                  {unpaidCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
 
-      <current.Component />
-    </main>
+        {page === HOME && unpaidQuery.isSuccess && (
+          <button
+            type="button"
+            className={
+              unpaidCount > 0 ? "unpaid-banner has-unpaid" : "unpaid-banner"
+            }
+            onClick={() => setPage("invoices")}
+          >
+            {unpaidCount === 0
+              ? "No unpaid invoices — everything has been paid."
+              : unpaidCount === 1
+                ? "1 invoice is currently unpaid."
+                : `${unpaidCount} invoices are currently unpaid.`}
+            <span className="unpaid-banner-link">View invoices</span>
+          </button>
+        )}
+
+        <current.Component />
+      </main>
+    </CurrentUserProvider>
   );
 }

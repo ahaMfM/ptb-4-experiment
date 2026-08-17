@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db, type Queryable } from "../db/client.js";
 import { isForeignKeyViolation } from "../db/errors.js";
 import { customers, users } from "../db/schema.js";
-import { protectedProcedure } from "../trpc.js";
+import { protectedProcedure, writeProcedure } from "../trpc.js";
 
 /**
  * The customer book. This module owns the `customers` table; other modules
@@ -113,7 +113,7 @@ export const customerProcedures = {
       }));
     }),
 
-  create: protectedProcedure
+  create: writeProcedure
     .input(customerInput)
     .mutation(async ({ input, ctx }): Promise<CustomerRecord> => {
       // Remember who recorded the customer and when.
@@ -130,7 +130,7 @@ export const customerProcedures = {
     }),
 
   /** Fails with NOT_FOUND when the customer is gone. */
-  update: protectedProcedure
+  update: writeProcedure
     .input(customerInput.extend({ id: z.number().int().positive() }))
     .mutation(async ({ input }): Promise<StoredCustomer> => {
       const { id, ...values } = input;
@@ -151,7 +151,7 @@ export const customerProcedures = {
    * Fails with CONFLICT when the customer has orders — order history outlives
    * the customer book — and with NOT_FOUND when they are already gone.
    */
-  remove: protectedProcedure
+  remove: writeProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input }): Promise<StoredCustomer> => {
       let deleted;

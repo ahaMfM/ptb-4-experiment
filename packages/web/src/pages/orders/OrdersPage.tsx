@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useCanWrite } from "../../lib/currentUser";
 import { readableError } from "../../lib/errors";
 import { formatDateTime, formatPrice } from "../../lib/format";
 import { useTRPC } from "../../trpc";
@@ -11,6 +12,7 @@ import PlaceOrderForm from "./PlaceOrderForm";
 /** Orders: place a new one, and work through the ones already on record. */
 export default function OrdersPage() {
   const trpc = useTRPC();
+  const canWrite = useCanWrite();
   const [openOrderId, setOpenOrderId] = useState<number | null>(null);
 
   const ordersQuery = useQuery(trpc.order.list.queryOptions());
@@ -23,7 +25,7 @@ export default function OrdersPage() {
     <>
       <h1>Orders</h1>
 
-      <PlaceOrderForm />
+      {canWrite && <PlaceOrderForm />}
 
       <section className="card">
         <h2>
@@ -107,7 +109,7 @@ export default function OrdersPage() {
                     <td className="num">{formatPrice(order.total)}</td>
                     <td>
                       <span className="row-actions">
-                        {order.status === "open" && (
+                        {canWrite && order.status === "open" && (
                           <button
                             type="button"
                             className="link-button"
@@ -120,7 +122,7 @@ export default function OrdersPage() {
                             Mark as shipped
                           </button>
                         )}
-                        {order.status === "open" && (
+                        {canWrite && order.status === "open" && (
                           <button
                             type="button"
                             className="link-button danger-link"

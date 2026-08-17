@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import type { Product } from "server/router";
+import { useCanWrite } from "../../lib/currentUser";
 import { readableError } from "../../lib/errors";
 import { formatPrice } from "../../lib/format";
 import { useTRPC } from "../../trpc";
@@ -16,6 +17,7 @@ import {
 export default function ProductsPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [form, setForm] = useState(emptyProductForm);
   // A file input's value cannot be set from code, so the fields are remounted
   // under a new key to clear the chosen picture after a product was added.
@@ -53,22 +55,24 @@ export default function ProductsPage() {
     <>
       <h1>Products</h1>
 
-      <section className="card">
-        <h2>Add a product</h2>
-        <form onSubmit={handleSubmit}>
-          <ProductFields
-            key={formKey}
-            form={form}
-            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
-            onError={setError}
-            requireImage
-          />
-          {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={createProduct.isPending}>
-            {createProduct.isPending ? "Adding…" : "Add product"}
-          </button>
-        </form>
-      </section>
+      {canWrite && (
+        <section className="card">
+          <h2>Add a product</h2>
+          <form onSubmit={handleSubmit}>
+            <ProductFields
+              key={formKey}
+              form={form}
+              onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+              onError={setError}
+              requireImage
+            />
+            {error && <p className="error">{error}</p>}
+            <button type="submit" disabled={createProduct.isPending}>
+              {createProduct.isPending ? "Adding…" : "Add product"}
+            </button>
+          </form>
+        </section>
+      )}
 
       <section className="card">
         <h2>
@@ -101,22 +105,24 @@ export default function ProductsPage() {
                     >
                       {p.stock > 0 ? `${p.stock} in stock` : "Out of stock"}
                     </span>
-                    <span className="row-actions">
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() => setEditing(p)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="link-button danger-link"
-                        onClick={() => setDeleting(p)}
-                      >
-                        Delete
-                      </button>
-                    </span>
+                    {canWrite && (
+                      <span className="row-actions">
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => setEditing(p)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="link-button danger-link"
+                          onClick={() => setDeleting(p)}
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    )}
                   </div>
                 </div>
               </article>

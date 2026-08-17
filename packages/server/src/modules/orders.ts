@@ -10,7 +10,7 @@ import {
   users,
   type OrderStatus,
 } from "../db/schema.js";
-import { protectedProcedure } from "../trpc.js";
+import { protectedProcedure, writeProcedure } from "../trpc.js";
 import { releaseStock, reserveStock } from "./catalog.js";
 import { requireCustomer, type Customer } from "./customers.js";
 import { issueInvoice } from "./invoices.js";
@@ -270,7 +270,7 @@ export const orderProcedures = {
    * not enough stock, all shortages in one message) or CONFLICT (stock changed
    * underneath) — see `catalog.reserveStock`.
    */
-  create: protectedProcedure.input(orderInput).mutation(async ({ input, ctx }) => {
+  create: writeProcedure.input(orderInput).mutation(async ({ input, ctx }) => {
     return db.transaction(async (tx) => {
       await requireCustomer(tx, input.customerId);
       const unitPrices = await reserveStock(tx, input.items);
@@ -302,7 +302,7 @@ export const orderProcedures = {
    * Only open orders can be cancelled: once shipped, the goods have
    * left the warehouse and a plain cancellation no longer applies.
    */
-  cancel: protectedProcedure.input(orderId).mutation(async ({ input }) => {
+  cancel: writeProcedure.input(orderId).mutation(async ({ input }) => {
     return db.transaction(async (tx) => {
       const cancelled = await leaveOpen(tx, input.id, "cancelled", (current) =>
         current === "cancelled"
@@ -319,7 +319,7 @@ export const orderProcedures = {
    * total as it stands now. Only open orders can be shipped, so an order can
    * never end up with two invoices.
    */
-  markShipped: protectedProcedure.input(orderId).mutation(async ({ input }) => {
+  markShipped: writeProcedure.input(orderId).mutation(async ({ input }) => {
     return db.transaction(async (tx) => {
       const shipped = await leaveOpen(tx, input.id, "shipped", (current) =>
         current === "shipped"

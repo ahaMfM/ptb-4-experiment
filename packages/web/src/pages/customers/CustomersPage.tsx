@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import type { CustomerRecord } from "server/router";
+import { useCanWrite } from "../../lib/currentUser";
 import { readableError } from "../../lib/errors";
 import { formatDate, formatDateTime, todayUtc } from "../../lib/format";
 import { useTRPC } from "../../trpc";
@@ -14,6 +15,7 @@ import EditCustomerDialog from "./EditCustomerDialog";
 export default function CustomersPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const canWrite = useCanWrite();
   const [form, setForm] = useState(emptyCustomerForm);
   const [error, setError] = useState<string | null>(null);
   const [viewing, setViewing] = useState<CustomerRecord | null>(null);
@@ -77,19 +79,21 @@ export default function CustomersPage() {
     <>
       <h1>Customers</h1>
 
-      <section className="card">
-        <h2>Add a customer</h2>
-        <form onSubmit={handleSubmit}>
-          <CustomerFields
-            form={form}
-            onChange={(field, value) => setForm((f) => ({ ...f, [field]: value }))}
-          />
-          {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={createCustomer.isPending}>
-            {createCustomer.isPending ? "Adding…" : "Add customer"}
-          </button>
-        </form>
-      </section>
+      {canWrite && (
+        <section className="card">
+          <h2>Add a customer</h2>
+          <form onSubmit={handleSubmit}>
+            <CustomerFields
+              form={form}
+              onChange={(field, value) => setForm((f) => ({ ...f, [field]: value }))}
+            />
+            {error && <p className="error">{error}</p>}
+            <button type="submit" disabled={createCustomer.isPending}>
+              {createCustomer.isPending ? "Adding…" : "Add customer"}
+            </button>
+          </form>
+        </section>
+      )}
 
       <section className="card">
         <div className="list-header">
@@ -186,26 +190,30 @@ export default function CustomersPage() {
                         >
                           Orders
                         </button>
-                        <button
-                          type="button"
-                          className="link-button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditing(c);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="link-button danger-link"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeleting(c);
-                          }}
-                        >
-                          Delete
-                        </button>
+                        {canWrite && (
+                          <>
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditing(c);
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="link-button danger-link"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleting(c);
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </span>
                     </td>
                   </tr>

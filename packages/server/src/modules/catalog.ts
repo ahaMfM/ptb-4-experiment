@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db, type Tx } from "../db/client.js";
 import { isForeignKeyViolation } from "../db/errors.js";
 import { products } from "../db/schema.js";
-import { protectedProcedure } from "../trpc.js";
+import { protectedProcedure, writeProcedure } from "../trpc.js";
 
 /**
  * The product catalog and the stock it keeps. This module owns the `products`
@@ -130,7 +130,7 @@ export const catalogProcedures = {
       db.select().from(products).orderBy(products.name, products.id),
   ),
 
-  create: protectedProcedure
+  create: writeProcedure
     .input(productInput)
     .mutation(async ({ input }): Promise<Product> => {
       const [created] = await db.insert(products).values(input).returning();
@@ -138,7 +138,7 @@ export const catalogProcedures = {
     }),
 
   /** Fails with NOT_FOUND when the product is gone. */
-  update: protectedProcedure
+  update: writeProcedure
     .input(productInput.extend({ id: z.number().int().positive() }))
     .mutation(async ({ input }): Promise<Product> => {
       const { id, ...values } = input;
@@ -157,7 +157,7 @@ export const catalogProcedures = {
    * Fails with CONFLICT when the product appears in an order — order history
    * keeps what was actually sold — and with NOT_FOUND when it is already gone.
    */
-  remove: protectedProcedure
+  remove: writeProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ input }): Promise<Product> => {
       let deleted;
