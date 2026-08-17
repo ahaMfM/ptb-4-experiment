@@ -79,12 +79,15 @@ function BackOffice({
 
   const unpaidQuery = useQuery(trpc.invoice.unpaidCount.queryOptions());
   const unpaidCount = unpaidQuery.data ?? 0;
+  // A viewer can look at everything but not change any of it.
+  const canWrite = user.role !== "viewer";
 
   return (
     <main>
       <div className="topbar">
         <span className="muted">
           Signed in as <strong>{user.name}</strong>
+          {!canWrite && " (view only)"}
         </span>
         <button
           type="button"
@@ -159,11 +162,11 @@ function BackOffice({
         </button>
       )}
 
-      {page === "products" && <ProductsPage />}
-      {page === "customers" && <CustomersPage />}
-      {page === "orders" && <OrdersPage />}
-      {page === "invoices" && <InvoicesPage />}
-      {page === "team" && <TeamPage />}
+      {page === "products" && <ProductsPage canWrite={canWrite} />}
+      {page === "customers" && <CustomersPage canWrite={canWrite} />}
+      {page === "orders" && <OrdersPage canWrite={canWrite} />}
+      {page === "invoices" && <InvoicesPage canWrite={canWrite} />}
+      {page === "team" && <TeamPage canWrite={canWrite} />}
     </main>
   );
 }

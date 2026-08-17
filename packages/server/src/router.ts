@@ -9,6 +9,7 @@ import {
   orderItems,
   orders,
   products,
+  USER_ROLES,
   users,
 } from "./db/schema.js";
 import { hashPassword, verifyPassword } from "./password.js";
@@ -21,8 +22,9 @@ export type {
   OrderStatus,
   Product,
   PublicUser,
+  UserRole,
 } from "./db/schema.js";
-export { ORDER_STATUSES } from "./db/schema.js";
+export { ORDER_STATUSES, USER_ROLES } from "./db/schema.js";
 
 /**
  * A customer as the web application sees it: the stored fields plus the
@@ -51,6 +53,21 @@ const protectedProcedure = t.procedure.use(({ ctx, next }) => {
     });
   }
   return next({ ctx: { ...ctx, user: ctx.user } });
+});
+
+/**
+ * For anything that changes data: creating, editing or removing a record,
+ * placing an order, recording a payment. A "viewer" may look at everything
+ * but not use these — everyone else (the default) can, same as today.
+ */
+const writeProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role === "viewer") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Your account can only view data, not change it.",
+    });
+  }
+  return next({ ctx });
 });
 
 /** Roughly 2 MB of binary data once base64-encoded, plus data-URL header. */
@@ -126,6 +143,8 @@ const userInput = z.object({
       "Username may only contain letters, numbers, dots, dashes and underscores",
     ),
   password: z.string().min(4, "Password must be at least 4 characters"),
+  // Left unset, a new team member can do everything, same as today.
+  role: z.enum(USER_ROLES).optional().default("member"),
 });
 
 const customerInput = z.object({
@@ -161,7 +180,12 @@ export const appRouter = t.router({
           });
         }
         await issueSession(user.id, ctx.resHeaders);
-        return { id: user.id, name: user.name, username: user.username };
+        return {
+          id: user.id,
+          name: user.name,
+          username: user.username,
+          role: user.role,
+        };
       }),
     signOut: t.procedure.mutation(async ({ ctx }) => {
       await endSession(ctx.sessionToken, ctx.resHeaders);
@@ -176,6 +200,7 @@ export const appRouter = t.router({
           id: users.id,
           name: users.name,
           username: users.username,
+          role: users.role,
           createdAt: users.createdAt,
         })
         .from(users)
@@ -188,9 +213,10 @@ export const appRouter = t.router({
     /**
      * Set up a new team member. There is no self-registration: only someone
      * who is already signed in can add a person, and passes the credentials
-     * on to them directly.
+     * on to them directly. Setting up team members is itself a change, so
+     * only someone who can make changes may do it.
      */
-    create: protectedProcedure.input(userInput).mutation(async ({ input }) => {
+    create: writeProcedure.input(userInput).mutation(async ({ input }) => {
       let created;
       try {
         [created] = await db
@@ -199,11 +225,13 @@ export const appRouter = t.router({
             name: input.name,
             username: input.username,
             passwordHash: hashPassword(input.password),
+            role: input.role,
           })
           .returning({
             id: users.id,
             name: users.name,
             username: users.username,
+            role: users.role,
             createdAt: users.createdAt,
           });
       } catch (err) {
@@ -318,7 +346,7 @@ export const appRouter = t.router({
           };
         });
       }),
-    create: protectedProcedure
+    create: writeProcedure
       .input(customerInput)
       .mutation(async ({ input, ctx }): Promise<CustomerRecord> => {
         // Remember who recorded the customer and when.
@@ -333,7 +361,7 @@ export const appRouter = t.router({
           recordedBy: ctx.user.name,
         };
       }),
-    update: protectedProcedure
+    update: writeProcedure
       .input(customerInput.extend({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         const { id, ...values } = input;
@@ -352,7 +380,7 @@ export const appRouter = t.router({
         }
         return { ...updated, createdAt: updated.createdAt?.toISOString() ?? null };
       }),
-    remove: protectedProcedure
+    remove: writeProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         let deleted;
@@ -385,11 +413,11 @@ export const appRouter = t.router({
     list: protectedProcedure.query(() => {
       return db.select().from(products).orderBy(products.name, products.id);
     }),
-    create: protectedProcedure.input(productInput).mutation(async ({ input }) => {
+    create: writeProcedure.input(productInput).mutation(async ({ input }) => {
       const [created] = await db.insert(products).values(input).returning();
       return created;
     }),
-    update: protectedProcedure
+    update: writeProcedure
       .input(productInput.extend({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         const { id, ...values } = input;
@@ -406,7 +434,7 @@ export const appRouter = t.router({
         }
         return updated;
       }),
-    remove: protectedProcedure
+    remove: writeProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         let deleted;
@@ -540,7 +568,7 @@ export const appRouter = t.router({
           total: total.toFixed(2),
         };
       }),
-    create: protectedProcedure.input(orderInput).mutation(async ({ input, ctx }) => {
+    create: writeProcedure.input(orderInput).mutation(async ({ input, ctx }) => {
       return db.transaction(async (tx) => {
         const [customer] = await tx
           .select({ id: customers.id })
@@ -629,7 +657,7 @@ export const appRouter = t.router({
      * Only open orders can be cancelled: once shipped, the goods have
      * left the warehouse and a plain cancellation no longer applies.
      */
-    cancel: protectedProcedure
+    cancel: writeProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         return db.transaction(async (tx) => {
@@ -684,7 +712,7 @@ export const appRouter = t.router({
      * also issues the invoice for the order, with the amount taken from
      * the order's line items.
      */
-    markShipped: protectedProcedure
+    markShipped: writeProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(async ({ input }) => {
         return db.transaction(async (tx) => {
@@ -786,7 +814,7 @@ export const appRouter = t.router({
      * payment. The `paid_at IS NULL` guard makes this a one-time action:
      * an invoice that is already paid stays as it was first recorded.
      */
-    markPaid: protectedProcedure
+    markPaid: writeProcedure
       .input(
         z.object({
           id: z.number().int().positive(),

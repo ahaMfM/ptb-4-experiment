@@ -257,7 +257,7 @@ function EditProductDialog({
   );
 }
 
-export default function ProductsPage() {
+export default function ProductsPage({ canWrite }: { canWrite: boolean }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
@@ -295,22 +295,24 @@ export default function ProductsPage() {
     <>
       <h1>Products</h1>
 
-      <section className="card">
-        <h2>Add a product</h2>
-        <form onSubmit={handleSubmit}>
-          <ProductFields
-            key={formKey}
-            form={form}
-            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
-            onError={setError}
-            requireImage
-          />
-          {error && <p className="error">{error}</p>}
-          <button type="submit" disabled={createProduct.isPending}>
-            {createProduct.isPending ? "Adding…" : "Add product"}
-          </button>
-        </form>
-      </section>
+      {canWrite && (
+        <section className="card">
+          <h2>Add a product</h2>
+          <form onSubmit={handleSubmit}>
+            <ProductFields
+              key={formKey}
+              form={form}
+              onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+              onError={setError}
+              requireImage
+            />
+            {error && <p className="error">{error}</p>}
+            <button type="submit" disabled={createProduct.isPending}>
+              {createProduct.isPending ? "Adding…" : "Add product"}
+            </button>
+          </form>
+        </section>
+      )}
 
       <section className="card">
         <h2>
@@ -343,22 +345,24 @@ export default function ProductsPage() {
                     >
                       {p.stock > 0 ? `${p.stock} in stock` : "Out of stock"}
                     </span>
-                    <span className="row-actions">
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() => setEditing(p)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="link-button danger-link"
-                        onClick={() => setDeleting(p)}
-                      >
-                        Delete
-                      </button>
-                    </span>
+                    {canWrite && (
+                      <span className="row-actions">
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => setEditing(p)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="link-button danger-link"
+                          onClick={() => setDeleting(p)}
+                        >
+                          Delete
+                        </button>
+                      </span>
+                    )}
                   </div>
                 </div>
               </article>

@@ -59,7 +59,7 @@ function RecordPaymentForm({
   );
 }
 
-export default function InvoicesPage() {
+export default function InvoicesPage({ canWrite }: { canWrite: boolean }) {
   const trpc = useTRPC();
   const [unpaidOnly, setUnpaidOnly] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -153,11 +153,13 @@ export default function InvoicesPage() {
                     <td>
                       {invoice.paidAt ? (
                         <span>Paid on {formatDate(invoice.paidAt)}</span>
-                      ) : (
+                      ) : canWrite ? (
                         <RecordPaymentForm
                           invoiceId={invoice.id}
                           onDone={setSuccess}
                         />
+                      ) : (
+                        <span className="muted">Unpaid</span>
                       )}
                     </td>
                   </tr>

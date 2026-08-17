@@ -14,9 +14,11 @@ const emptyLine: OrderLine = { productId: "", quantity: "1" };
 function OrderDetailDialog({
   orderId,
   onClose,
+  canWrite,
 }: {
   orderId: number;
   onClose: () => void;
+  canWrite: boolean;
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -158,7 +160,7 @@ function OrderDetailDialog({
         )}
 
         <div className="actions">
-          {order?.status === "open" && (
+          {canWrite && order?.status === "open" && (
             <button
               type="button"
               onClick={() => markShipped.mutate({ id: orderId })}
@@ -167,7 +169,7 @@ function OrderDetailDialog({
               {markShipped.isPending ? "Marking as shipped…" : "Mark as shipped"}
             </button>
           )}
-          {order?.status === "open" && (
+          {canWrite && order?.status === "open" && (
             <button
               type="button"
               className="danger"
@@ -194,7 +196,7 @@ function OrderDetailDialog({
   );
 }
 
-export default function OrdersPage() {
+export default function OrdersPage({ canWrite }: { canWrite: boolean }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -310,121 +312,123 @@ export default function OrdersPage() {
     <>
       <h1>Orders</h1>
 
-      <section className="card">
-        <h2>Place an order</h2>
-        {customersQuery.isSuccess && customers.length === 0 && (
-          <p className="muted">Add a customer first to place an order.</p>
-        )}
-        {productsQuery.isSuccess && products.length === 0 && (
-          <p className="muted">Add a product first to place an order.</p>
-        )}
-        <form onSubmit={handleSubmit}>
-          <div className="grid">
-            <label className="full">
-              Customer
-              <select
-                value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
-                required
-              >
-                <option value="">Choose a customer…</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.company} — {c.contactName}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+      {canWrite && (
+        <section className="card">
+          <h2>Place an order</h2>
+          {customersQuery.isSuccess && customers.length === 0 && (
+            <p className="muted">Add a customer first to place an order.</p>
+          )}
+          {productsQuery.isSuccess && products.length === 0 && (
+            <p className="muted">Add a product first to place an order.</p>
+          )}
+          <form onSubmit={handleSubmit}>
+            <div className="grid">
+              <label className="full">
+                Customer
+                <select
+                  value={customerId}
+                  onChange={(e) => setCustomerId(e.target.value)}
+                  required
+                >
+                  <option value="">Choose a customer…</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.company} — {c.contactName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
-          <div className="order-lines">
-            {lines.map((line, index) => {
-              const product = productById.get(line.productId);
-              return (
-                <div className="order-line" key={index}>
-                  <label>
-                    Product
-                    <select
-                      value={line.productId}
-                      onChange={(e) =>
-                        setLine(index, { productId: e.target.value })
-                      }
-                      required
-                    >
-                      <option value="">Choose a product…</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({formatPrice(p.price)}, {p.stock} in stock)
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Quantity
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      step="1"
-                      value={line.quantity}
-                      onChange={(e) =>
-                        setLine(index, { quantity: e.target.value })
-                      }
-                      required
-                    />
-                  </label>
-                  <span className="line-info">
-                    {product && (
-                      <span
-                        className={
-                          Number(line.quantity) > product.stock
-                            ? "error"
-                            : "muted"
+            <div className="order-lines">
+              {lines.map((line, index) => {
+                const product = productById.get(line.productId);
+                return (
+                  <div className="order-line" key={index}>
+                    <label>
+                      Product
+                      <select
+                        value={line.productId}
+                        onChange={(e) =>
+                          setLine(index, { productId: e.target.value })
                         }
+                        required
                       >
-                        {Number(line.quantity) > product.stock
-                          ? `Only ${product.stock} in stock`
-                          : formatPrice(
-                              Number(product.price) * Number(line.quantity || 0),
-                            )}
-                      </span>
-                    )}
-                  </span>
-                  <button
-                    type="button"
-                    className="link-button danger-link"
-                    onClick={() =>
-                      setLines((current) =>
-                        current.filter((_, i) => i !== index),
-                      )
-                    }
-                    disabled={lines.length === 1}
-                  >
-                    Remove
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                        <option value="">Choose a product…</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({formatPrice(p.price)}, {p.stock} in stock)
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Quantity
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="1"
+                        step="1"
+                        value={line.quantity}
+                        onChange={(e) =>
+                          setLine(index, { quantity: e.target.value })
+                        }
+                        required
+                      />
+                    </label>
+                    <span className="line-info">
+                      {product && (
+                        <span
+                          className={
+                            Number(line.quantity) > product.stock
+                              ? "error"
+                              : "muted"
+                          }
+                        >
+                          {Number(line.quantity) > product.stock
+                            ? `Only ${product.stock} in stock`
+                            : formatPrice(
+                                Number(product.price) * Number(line.quantity || 0),
+                              )}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      className="link-button danger-link"
+                      onClick={() =>
+                        setLines((current) =>
+                          current.filter((_, i) => i !== index),
+                        )
+                      }
+                      disabled={lines.length === 1}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
 
-          <div className="order-form-footer">
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => setLines((current) => [...current, { ...emptyLine }])}
-            >
-              Add another product
+            <div className="order-form-footer">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setLines((current) => [...current, { ...emptyLine }])}
+              >
+                Add another product
+              </button>
+              <span className="order-total">Total: {formatPrice(total)}</span>
+            </div>
+
+            {error && <p className="error">{error}</p>}
+            {success && <p className="success">{success}</p>}
+            <button type="submit" disabled={createOrder.isPending}>
+              {createOrder.isPending ? "Placing order…" : "Place order"}
             </button>
-            <span className="order-total">Total: {formatPrice(total)}</span>
-          </div>
-
-          {error && <p className="error">{error}</p>}
-          {success && <p className="success">{success}</p>}
-          <button type="submit" disabled={createOrder.isPending}>
-            {createOrder.isPending ? "Placing order…" : "Place order"}
-          </button>
-        </form>
-      </section>
+          </form>
+        </section>
+      )}
 
       <section className="card">
         <h2>
@@ -508,7 +512,7 @@ export default function OrdersPage() {
                     <td className="num">{formatPrice(order.total)}</td>
                     <td>
                       <span className="row-actions">
-                        {order.status === "open" && (
+                        {canWrite && order.status === "open" && (
                           <button
                             type="button"
                             className="link-button"
@@ -521,7 +525,7 @@ export default function OrdersPage() {
                             Mark as shipped
                           </button>
                         )}
-                        {order.status === "open" && (
+                        {canWrite && order.status === "open" && (
                           <button
                             type="button"
                             className="link-button danger-link"
@@ -565,6 +569,7 @@ export default function OrdersPage() {
           key={openOrderId}
           orderId={openOrderId}
           onClose={() => setOpenOrderId(null)}
+          canWrite={canWrite}
         />
       )}
     </>
