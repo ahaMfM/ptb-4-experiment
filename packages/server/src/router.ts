@@ -558,6 +558,17 @@ export const appRouter = t.router({
   }),
   invoice: t.router({
     /**
+     * How many invoices are still waiting for payment. Shown on the
+     * start screen so open receivables are visible right away.
+     */
+    unpaidCount: t.procedure.query(async () => {
+      const [row] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(invoices)
+        .where(isNull(invoices.paidAt));
+      return row?.count ?? 0;
+    }),
+    /**
      * All invoices, newest first, each with the customer it is addressed
      * to and whether/when it was paid. Pass `unpaidOnly` to see just the
      * outstanding ones.

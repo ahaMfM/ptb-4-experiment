@@ -29,8 +29,9 @@ function OrderDetailDialog({
         await Promise.all([
           queryClient.invalidateQueries(trpc.order.byId.queryFilter({ id: orderId })),
           queryClient.invalidateQueries(trpc.order.list.queryFilter()),
-          // Shipping issues the invoice for the order.
-          queryClient.invalidateQueries(trpc.invoice.list.queryFilter()),
+          // Shipping issues the invoice for the order, which also
+          // changes the unpaid-invoice count on the start screen.
+          queryClient.invalidateQueries(trpc.invoice.pathFilter()),
         ]);
       },
     }),
@@ -238,8 +239,9 @@ export default function OrdersPage() {
           queryClient.invalidateQueries(
             trpc.order.byId.queryFilter({ id: order.id }),
           ),
-          // Shipping issues the invoice for the order.
-          queryClient.invalidateQueries(trpc.invoice.list.queryFilter()),
+          // Shipping issues the invoice for the order, which also
+          // changes the unpaid-invoice count on the start screen.
+          queryClient.invalidateQueries(trpc.invoice.pathFilter()),
         ]);
       },
     }),

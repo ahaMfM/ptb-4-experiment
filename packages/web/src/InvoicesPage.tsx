@@ -23,7 +23,8 @@ function RecordPaymentForm({
   const markPaid = useMutation(
     trpc.invoice.markPaid.mutationOptions({
       onSuccess: async (invoice) => {
-        await queryClient.invalidateQueries(trpc.invoice.list.queryFilter());
+        // Refresh the invoice list and the unpaid count on the start screen.
+        await queryClient.invalidateQueries(trpc.invoice.pathFilter());
         onDone(
           `Payment of ${formatPrice(invoice.amount)} for invoice #${invoice.id} recorded (paid on ${formatDate(invoice.paidAt ?? paidAt)}).`,
         );

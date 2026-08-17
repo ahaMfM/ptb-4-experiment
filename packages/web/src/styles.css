@@ -307,6 +307,65 @@ button.tab.active {
   border-bottom-color: var(--accent);
 }
 
+.tab-badge {
+  display: inline-block;
+  margin-left: 0.45rem;
+  min-width: 1.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: #fdf3e0;
+  color: #915f13;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+button.tab.active .tab-badge {
+  background: #e3edfb;
+  color: var(--accent);
+}
+
+.unpaid-banner {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-bottom: 1.5rem;
+  padding: 0.8rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.unpaid-banner:hover:not(:disabled) {
+  background: var(--card);
+  border-color: var(--accent);
+}
+
+.unpaid-banner.has-unpaid {
+  border-color: #f0d9a8;
+  background: #fdf3e0;
+  color: #915f13;
+}
+
+.unpaid-banner.has-unpaid:hover:not(:disabled) {
+  background: #fbecd0;
+  border-color: #e3c27f;
+}
+
+.unpaid-banner-link {
+  color: var(--accent);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
 .image-preview img {
   max-width: 200px;
   max-height: 150px;
