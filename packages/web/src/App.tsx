@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import type { PublicUser } from "server/router";
+import { useSearchParam } from "./lib/urlState";
 import CustomersPage from "./pages/customers/CustomersPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import OrdersPage from "./pages/orders/OrdersPage";
@@ -91,14 +91,18 @@ function BackOffice({
   signingOut: boolean;
 }) {
   const trpc = useTRPC();
-  const [page, setPage] = useState<Page>(HOME);
+  const [page, setPage] = useSearchParam<Page>("page", HOME, "push");
 
   // Open receivables are visible from anywhere: as a count on the Invoices
   // tab, and spelled out on the start screen.
   const unpaidQuery = useQuery(trpc.invoice.unpaidCount.queryOptions());
   const unpaidCount = unpaidQuery.data ?? 0;
 
-  const current = PAGES.find((entry) => entry.id === page)!;
+  // A stale or hand-edited `page` param falls back to the home screen rather
+  // than crashing.
+  const current =
+    PAGES.find((entry) => entry.id === page) ??
+    PAGES.find((entry) => entry.id === HOME)!;
 
   return (
     <main>

@@ -287,6 +287,15 @@ button.danger:hover:not(:disabled) {
   border-bottom: 1px solid var(--border);
 }
 
+.tabs.subtabs {
+  margin-bottom: 1rem;
+}
+
+.tabs.subtabs button.tab {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.9rem;
+}
+
 button.tab {
   background: none;
   color: var(--muted);

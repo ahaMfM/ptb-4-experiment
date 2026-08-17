@@ -2,19 +2,34 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { readableError } from "../../lib/errors";
 import { formatDateTime, formatPrice } from "../../lib/format";
+import { useSearchParam } from "../../lib/urlState";
 import { useTRPC } from "../../trpc";
 import StatusBadge from "../../ui/StatusBadge";
 import { useCancelOrder, useMarkShipped } from "./orderActions";
 import OrderDetailDialog from "./OrderDetailDialog";
 import PlaceOrderForm from "./PlaceOrderForm";
 
+const STATUS_FILTERS = [
+  { id: "all", label: "All" },
+  { id: "open", label: "Open" },
+  { id: "shipped", label: "Shipped" },
+  { id: "cancelled", label: "Cancelled" },
+] as const;
+
+type StatusFilter = (typeof STATUS_FILTERS)[number]["id"];
+
 /** Orders: place a new one, and work through the ones already on record. */
 export default function OrdersPage() {
   const trpc = useTRPC();
   const [openOrderId, setOpenOrderId] = useState<number | null>(null);
+  const [statusFilter, setStatusFilter] = useSearchParam<StatusFilter>("status", "all");
 
   const ordersQuery = useQuery(trpc.order.list.queryOptions());
-  const orders = ordersQuery.data ?? [];
+  const allOrders = ordersQuery.data ?? [];
+  const orders =
+    statusFilter === "all"
+      ? allOrders
+      : allOrders.filter((order) => order.status === statusFilter);
 
   const markShipped = useMarkShipped();
   const cancelOrder = useCancelOrder();
@@ -27,15 +42,32 @@ export default function OrdersPage() {
 
       <section className="card">
         <h2>
-          All orders
+          {STATUS_FILTERS.find((f) => f.id === statusFilter)!.label} orders
           {ordersQuery.isSuccess && <span className="count"> ({orders.length})</span>}
         </h2>
+
+        <nav className="tabs subtabs" aria-label="Filter orders by status">
+          {STATUS_FILTERS.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              className={statusFilter === filter.id ? "tab active" : "tab"}
+              onClick={() => setStatusFilter(filter.id)}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </nav>
+
         {ordersQuery.isLoading && <p className="muted">Loading…</p>}
         {ordersQuery.isError && (
           <p className="error">Could not load orders: {ordersQuery.error.message}</p>
         )}
-        {ordersQuery.isSuccess && orders.length === 0 && (
+        {ordersQuery.isSuccess && allOrders.length === 0 && (
           <p className="muted">No orders yet. Place your first one above.</p>
+        )}
+        {ordersQuery.isSuccess && allOrders.length > 0 && orders.length === 0 && (
+          <p className="muted">No {statusFilter} orders.</p>
         )}
         {markShipped.isError && (
           <p className="error">
