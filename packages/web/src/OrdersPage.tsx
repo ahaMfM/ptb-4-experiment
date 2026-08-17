@@ -20,6 +20,131 @@ function formatDateTime(iso: string): string {
   });
 }
 
+function formatDate(isoDate: string): string {
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** "open" → "Open" — statuses are stored lowercase. */
+function formatStatus(status: string): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`status-badge status-${status}`}>{formatStatus(status)}</span>
+  );
+}
+
+function OrderDetailDialog({
+  orderId,
+  onClose,
+}: {
+  orderId: number;
+  onClose: () => void;
+}) {
+  const trpc = useTRPC();
+  const detailQuery = useQuery(trpc.order.byId.queryOptions({ id: orderId }));
+  const order = detailQuery.data;
+
+  return (
+    <div
+      className="overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="modal modal-wide card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Order #${orderId}`}
+      >
+        <header className="order-header">
+          <h2>Order #{orderId}</h2>
+          {order && <StatusBadge status={order.status} />}
+        </header>
+
+        {detailQuery.isLoading && <p className="muted">Loading…</p>}
+        {detailQuery.isError && (
+          <p className="error">
+            Could not load order: {readableError(detailQuery.error.message)}
+          </p>
+        )}
+
+        {order && (
+          <>
+            <p className="muted">Placed on {formatDateTime(order.createdAt)}</p>
+
+            <h3>Customer</h3>
+            <div className="detail-grid">
+              <div>
+                <span className="detail-label">Company</span>
+                {order.customer.company}
+              </div>
+              <div>
+                <span className="detail-label">Contact person</span>
+                {order.customer.contactName}
+              </div>
+              <div>
+                <span className="detail-label">E-mail</span>
+                <a href={`mailto:${order.customer.email}`}>{order.customer.email}</a>
+              </div>
+              <div>
+                <span className="detail-label">Customer since</span>
+                {formatDate(order.customer.customerSince)}
+              </div>
+              <div>
+                <span className="detail-label">Address</span>
+                <span className="address">{order.customer.address}</span>
+              </div>
+            </div>
+
+            <h3>Items</h3>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th className="num">Quantity</th>
+                    <th className="num">Unit price</th>
+                    <th className="num">Line total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order.items.map((item) => (
+                    <tr key={item.productId}>
+                      <td>{item.productName}</td>
+                      <td className="num">{item.quantity}</td>
+                      <td className="num">{formatPrice(item.unitPrice)}</td>
+                      <td className="num">
+                        {formatPrice(Number(item.unitPrice) * item.quantity)}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="order-total-row">
+                    <td colSpan={3}>Total</td>
+                    <td className="num">{formatPrice(order.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        <div className="actions">
+          <button type="button" className="secondary" onClick={onClose} autoFocus>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OrdersPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -28,6 +153,7 @@ export default function OrdersPage() {
   const [lines, setLines] = useState<OrderLine[]>([{ ...emptyLine }]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [openOrderId, setOpenOrderId] = useState<number | null>(null);
 
   const customersQuery = useQuery(trpc.customer.list.queryOptions());
   const productsQuery = useQuery(trpc.product.list.queryOptions());
@@ -45,7 +171,9 @@ export default function OrdersPage() {
         setCustomerId("");
         setLines([{ ...emptyLine }]);
         setError(null);
-        setSuccess(`Order #${order.id} was placed and stock has been updated.`);
+        setSuccess(
+          `Order #${order.id} was placed and is now ${order.status}. Stock has been updated.`,
+        );
         await Promise.all([
           queryClient.invalidateQueries(trpc.order.list.queryFilter()),
           queryClient.invalidateQueries(trpc.product.list.queryFilter()),
@@ -230,45 +358,72 @@ export default function OrdersPage() {
         {ordersQuery.isSuccess && orders.length === 0 && (
           <p className="muted">No orders yet. Place your first one above.</p>
         )}
-        {orders.map((order) => (
-          <article key={order.id} className="order">
-            <header className="order-header">
-              <h3>
-                Order #{order.id} — {order.company} ({order.contactName})
-              </h3>
-              <span className="muted">{formatDateTime(order.createdAt)}</span>
-            </header>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th className="num">Quantity</th>
-                    <th className="num">Unit price</th>
-                    <th className="num">Line total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.items.map((item) => (
-                    <tr key={item.productId}>
-                      <td>{item.productName}</td>
-                      <td className="num">{item.quantity}</td>
-                      <td className="num">{formatPrice(item.unitPrice)}</td>
-                      <td className="num">
-                        {formatPrice(Number(item.unitPrice) * item.quantity)}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className="order-total-row">
-                    <td colSpan={3}>Total</td>
+        {orders.length > 0 && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Placed</th>
+                  <th>Contents</th>
+                  <th>Status</th>
+                  <th className="num">Total</th>
+                  <th>
+                    <span className="visually-hidden">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr
+                    key={order.id}
+                    className="clickable"
+                    onClick={() => setOpenOrderId(order.id)}
+                  >
+                    <td>#{order.id}</td>
+                    <td>
+                      {order.company}
+                      <br />
+                      <span className="muted">{order.contactName}</span>
+                    </td>
+                    <td>{formatDateTime(order.createdAt)}</td>
+                    <td>
+                      {order.items
+                        .map((item) => `${item.quantity} × ${item.productName}`)
+                        .join(", ")}
+                    </td>
+                    <td>
+                      <StatusBadge status={order.status} />
+                    </td>
                     <td className="num">{formatPrice(order.total)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenOrderId(order.id);
+                        }}
+                      >
+                        Details
+                      </button>
+                    </td>
                   </tr>
-                </tbody>
-              </table>
-            </div>
-          </article>
-        ))}
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
+
+      {openOrderId !== null && (
+        <OrderDetailDialog
+          key={openOrderId}
+          orderId={openOrderId}
+          onClose={() => setOpenOrderId(null)}
+        />
+      )}
     </>
   );
 }

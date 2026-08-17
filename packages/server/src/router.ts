@@ -4,7 +4,8 @@ import { z } from "zod";
 import { db } from "./db/index.js";
 import { customers, orderItems, orders, products } from "./db/schema.js";
 
-export type { Customer, Order, OrderItem, Product } from "./db/schema.js";
+export type { Customer, Order, OrderItem, OrderStatus, Product } from "./db/schema.js";
+export { ORDER_STATUSES } from "./db/schema.js";
 
 const t = initTRPC.create();
 
@@ -201,6 +202,7 @@ export const appRouter = t.router({
         .select({
           id: orders.id,
           createdAt: orders.createdAt,
+          status: orders.status,
           customerId: orders.customerId,
           contactName: customers.contactName,
           company: customers.company,
@@ -232,6 +234,7 @@ export const appRouter = t.router({
         return {
           id: order.id,
           createdAt: order.createdAt.toISOString(),
+          status: order.status,
           customerId: order.customerId,
           contactName: order.contactName,
           company: order.company,
@@ -240,6 +243,50 @@ export const appRouter = t.router({
         };
       });
     }),
+    /** Everything about a single order: status, customer, and all line items. */
+    byId: t.procedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .query(async ({ input }) => {
+        const [order] = await db
+          .select({
+            id: orders.id,
+            createdAt: orders.createdAt,
+            status: orders.status,
+            customer: customers,
+          })
+          .from(orders)
+          .innerJoin(customers, eq(customers.id, orders.customerId))
+          .where(eq(orders.id, input.id));
+        if (!order) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+        }
+
+        const items = await db
+          .select({
+            productId: orderItems.productId,
+            quantity: orderItems.quantity,
+            unitPrice: orderItems.unitPrice,
+            productName: products.name,
+          })
+          .from(orderItems)
+          .innerJoin(products, eq(products.id, orderItems.productId))
+          .where(eq(orderItems.orderId, input.id))
+          .orderBy(orderItems.id);
+
+        const total = items.reduce(
+          (sum, item) => sum + Number(item.unitPrice) * item.quantity,
+          0,
+        );
+
+        return {
+          id: order.id,
+          createdAt: order.createdAt.toISOString(),
+          status: order.status,
+          customer: order.customer,
+          items,
+          total: total.toFixed(2),
+        };
+      }),
     create: t.procedure.input(orderInput).mutation(async ({ input }) => {
       return db.transaction(async (tx) => {
         const [customer] = await tx
@@ -315,7 +362,11 @@ export const appRouter = t.router({
             unitPrice: productById.get(item.productId)!.price,
           })),
         );
-        return { id: order.id, createdAt: order.createdAt.toISOString() };
+        return {
+          id: order.id,
+          status: order.status,
+          createdAt: order.createdAt.toISOString(),
+        };
       });
     }),
   }),

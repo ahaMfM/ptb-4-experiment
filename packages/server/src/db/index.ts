@@ -38,8 +38,12 @@ export async function initDb(): Promise<void> {
     CREATE TABLE IF NOT EXISTS "orders" (
       "id" serial PRIMARY KEY,
       "customer_id" integer NOT NULL REFERENCES "customers"("id"),
+      "status" text NOT NULL DEFAULT 'open',
       "created_at" timestamptz NOT NULL DEFAULT now()
     );
+    -- Upgrade databases created before orders had a status: existing orders
+    -- get the default, i.e. they count as open.
+    ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "status" text NOT NULL DEFAULT 'open';
     CREATE TABLE IF NOT EXISTS "order_items" (
       "id" serial PRIMARY KEY,
       "order_id" integer NOT NULL REFERENCES "orders"("id") ON DELETE CASCADE,

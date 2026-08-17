@@ -32,11 +32,16 @@ export const products = pgTable("products", {
 
 export type Product = typeof products.$inferSelect;
 
+/** Lifecycle of an order. Newly placed orders start out as "open". */
+export const ORDER_STATUSES = ["open", "shipped", "completed", "cancelled"] as const;
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   customerId: integer("customer_id")
     .notNull()
     .references(() => customers.id),
+  status: text("status").$type<OrderStatus>().notNull().default("open"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
