@@ -257,6 +257,12 @@ function EditProductDialog({
   );
 }
 
+const PRODUCTS_VIEW_KEY = "products-view";
+
+function loadProductsView(): "grid" | "compact" {
+  return localStorage.getItem(PRODUCTS_VIEW_KEY) === "compact" ? "compact" : "grid";
+}
+
 export default function ProductsPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -265,6 +271,12 @@ export default function ProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState<Product | null>(null);
+  const [view, setView] = useState<"grid" | "compact">(loadProductsView);
+
+  const changeView = (next: "grid" | "compact") => {
+    setView(next);
+    localStorage.setItem(PRODUCTS_VIEW_KEY, next);
+  };
 
   const productsQuery = useQuery(trpc.product.list.queryOptions());
 
@@ -313,10 +325,28 @@ export default function ProductsPage() {
       </section>
 
       <section className="card">
-        <h2>
-          Our products
-          {productsQuery.isSuccess && <span className="count"> ({products.length})</span>}
-        </h2>
+        <div className="section-header">
+          <h2>
+            Our products
+            {productsQuery.isSuccess && <span className="count"> ({products.length})</span>}
+          </h2>
+          <div className="view-toggle">
+            <button
+              type="button"
+              className={view === "grid" ? "view-toggle-btn active" : "view-toggle-btn"}
+              onClick={() => changeView("grid")}
+            >
+              Cards
+            </button>
+            <button
+              type="button"
+              className={view === "compact" ? "view-toggle-btn active" : "view-toggle-btn"}
+              onClick={() => changeView("compact")}
+            >
+              Compact
+            </button>
+          </div>
+        </div>
         {productsQuery.isLoading && <p className="muted">Loading…</p>}
         {productsQuery.isError && (
           <p className="error">Could not load products: {productsQuery.error.message}</p>
@@ -324,7 +354,7 @@ export default function ProductsPage() {
         {productsQuery.isSuccess && products.length === 0 && (
           <p className="muted">No products yet. Add your first one above.</p>
         )}
-        {products.length > 0 && (
+        {products.length > 0 && view === "grid" && (
           <div className="product-grid">
             {products.map((p) => (
               <article key={p.id} className="product-card">
@@ -361,6 +391,22 @@ export default function ProductsPage() {
                     </span>
                   </div>
                 </div>
+              </article>
+            ))}
+          </div>
+        )}
+        {products.length > 0 && view === "compact" && (
+          <div className="product-list">
+            {products.map((p) => (
+              <article key={p.id} className="product-row">
+                <img className="product-row-image" src={p.image} alt={p.name} />
+                <span className="product-row-name">{p.name}</span>
+                <span className="product-price">{formatPrice(p.price)}</span>
+                <span
+                  className={p.stock > 0 ? "stock-badge" : "stock-badge out-of-stock"}
+                >
+                  {p.stock > 0 ? `${p.stock} in stock` : "Out of stock"}
+                </span>
               </article>
             ))}
           </div>
