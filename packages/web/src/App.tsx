@@ -8,6 +8,7 @@ import OrdersPage from "./orders/OrdersPage";
 import ProductsPage from "./products/ProductsPage";
 import TeamPage from "./team/TeamPage";
 import { useTRPC } from "./trpc";
+import { getSearchParam, setSearchParam } from "./lib/url";
 
 /** The screens of the back office, in the order the tabs show them. */
 const PAGES = [
@@ -23,6 +24,12 @@ const PAGES = [
 }[];
 
 type PageId = (typeof PAGES)[number]["id"];
+
+/** The tab to show on load: whatever the URL names, else the first tab. */
+function initialPage(): PageId {
+  const tab = getSearchParam("tab");
+  return PAGES.some((page) => page.id === tab) ? (tab as PageId) : "products";
+}
 
 /**
  * Everyone signs in as themselves before using the application, so the app
@@ -96,7 +103,12 @@ function BackOffice({
   signingOut: boolean;
 }) {
   const trpc = useTRPC();
-  const [page, setPage] = useState<PageId>("products");
+  const [page, setPageState] = useState<PageId>(initialPage);
+
+  function setPage(id: PageId) {
+    setPageState(id);
+    setSearchParam("tab", id);
+  }
 
   const unpaidQuery = useQuery(trpc.invoice.unpaidCount.queryOptions());
   const unpaidCount = unpaidQuery.data ?? 0;

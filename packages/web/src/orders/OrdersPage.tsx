@@ -8,6 +8,7 @@ import {
   formatOrderContents,
   formatPrice,
 } from "../lib/format";
+import { getSearchParam, setSearchParam } from "../lib/url";
 import { useTRPC } from "../trpc";
 import OrderDetailDialog from "./OrderDetailDialog";
 import {
@@ -19,13 +20,43 @@ import {
 } from "./orderActions";
 import PlaceOrderForm from "./PlaceOrderForm";
 
+/** The statuses orders can be narrowed down to, "all" meaning no filter. */
+const STATUS_FILTERS = ["all", "open", "shipped", "cancelled"] as const;
+type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
+  all: "All",
+  open: "Open",
+  shipped: "Shipped",
+  cancelled: "Cancelled",
+};
+
+/** The filter to show on load: whatever the URL names, else "all". */
+function initialStatusFilter(): StatusFilter {
+  const status = getSearchParam("status");
+  return (STATUS_FILTERS as readonly string[]).includes(status ?? "")
+    ? (status as StatusFilter)
+    : "all";
+}
+
 /** What has been ordered: place new orders, ship or cancel the open ones. */
 export default function OrdersPage() {
   const trpc = useTRPC();
   const [openOrderId, setOpenOrderId] = useState<number | null>(null);
+  const [statusFilter, setStatusFilterState] =
+    useState<StatusFilter>(initialStatusFilter);
+
+  function setStatusFilter(next: StatusFilter) {
+    setStatusFilterState(next);
+    setSearchParam("status", next === "all" ? null : next);
+  }
 
   const ordersQuery = useQuery(trpc.order.list.queryOptions());
-  const orders = ordersQuery.data ?? [];
+  const allOrders = ordersQuery.data ?? [];
+  const orders =
+    statusFilter === "all"
+      ? allOrders
+      : allOrders.filter((order) => order.status === statusFilter);
 
   const shipOrder = useShipOrder();
   const cancelOrder = useCancelOrder();
@@ -38,15 +69,37 @@ export default function OrdersPage() {
       <PlaceOrderForm />
 
       <section className="card">
-        <h2>
-          All orders
-          {ordersQuery.isSuccess && (
-            <span className="count"> ({orders.length})</span>
-          )}
-        </h2>
+        <div className="invoice-toolbar">
+          <h2>
+            {STATUS_FILTER_LABELS[statusFilter]} orders
+            {ordersQuery.isSuccess && (
+              <span className="count"> ({orders.length})</span>
+            )}
+          </h2>
+          <div className="status-filter" role="group" aria-label="Filter by status">
+            {STATUS_FILTERS.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                className={
+                  filter === statusFilter ? "chip active" : "chip"
+                }
+                aria-pressed={filter === statusFilter}
+                onClick={() => setStatusFilter(filter)}
+              >
+                {STATUS_FILTER_LABELS[filter]}
+              </button>
+            ))}
+          </div>
+        </div>
         <QueryFeedback query={ordersQuery} errorPrefix="Could not load orders" />
-        {ordersQuery.isSuccess && orders.length === 0 && (
+        {ordersQuery.isSuccess && allOrders.length === 0 && (
           <p className="muted">No orders yet. Place your first one above.</p>
+        )}
+        {ordersQuery.isSuccess && allOrders.length > 0 && orders.length === 0 && (
+          <p className="muted">
+            No {STATUS_FILTER_LABELS[statusFilter].toLowerCase()} orders.
+          </p>
         )}
         {shipOrder.isError && (
           <p className="error">

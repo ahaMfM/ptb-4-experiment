@@ -589,6 +589,32 @@ tr.order-total-row td {
   flex-wrap: wrap;
 }
 
+.status-filter {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+button.chip {
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+button.chip:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+button.chip.active {
+  background: var(--info-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 .checkbox-label {
   display: inline-flex;
   align-items: center;
