@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { readableError } from "../../lib/errors";
 import { formatDate, formatDateTime, formatPrice } from "../../lib/format";
 import { useTRPC } from "../../trpc";
 import Modal from "../../ui/Modal";
 import StatusBadge from "../../ui/StatusBadge";
 import { useCancelOrder, useMarkShipped } from "./orderActions";
+import ProductPreviewDialog from "./ProductPreviewDialog";
 
 /**
  * One order in full: who it is for, what is on it, and — while it is still
@@ -20,6 +22,10 @@ export default function OrderDetailDialog({
   const trpc = useTRPC();
   const detailQuery = useQuery(trpc.order.byId.queryOptions({ id: orderId }));
   const order = detailQuery.data;
+  const [previewing, setPreviewing] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
 
   const markShipped = useMarkShipped();
   const cancelOrder = useCancelOrder();
@@ -84,7 +90,17 @@ export default function OrderDetailDialog({
               <tbody>
                 {order.items.map((item) => (
                   <tr key={item.productId}>
-                    <td>{item.productName}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() =>
+                          setPreviewing({ id: item.productId, name: item.productName })
+                        }
+                      >
+                        {item.productName}
+                      </button>
+                    </td>
                     <td className="num">{item.quantity}</td>
                     <td className="num">{formatPrice(item.unitPrice)}</td>
                     <td className="num">
@@ -152,6 +168,15 @@ export default function OrderDetailDialog({
           Close
         </button>
       </div>
+
+      {previewing && (
+        <ProductPreviewDialog
+          key={previewing.id}
+          productId={previewing.id}
+          productName={previewing.name}
+          onClose={() => setPreviewing(null)}
+        />
+      )}
     </Modal>
   );
 }
