@@ -369,6 +369,39 @@ export const appRouter = t.router({
         };
       });
     }),
+    /**
+     * Mark an order as sent out. Only open orders can be shipped, so the
+     * status filter doubles as a guard against double-shipping.
+     */
+    markShipped: t.procedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input }) => {
+        const [updated] = await db
+          .update(orders)
+          .set({ status: "shipped" })
+          .where(and(eq(orders.id, input.id), eq(orders.status, "open")))
+          .returning();
+        if (!updated) {
+          const [existing] = await db
+            .select({ status: orders.status })
+            .from(orders)
+            .where(eq(orders.id, input.id));
+          if (!existing) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Order not found",
+            });
+          }
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              existing.status === "shipped"
+                ? `Order #${input.id} is already marked as shipped.`
+                : `Order #${input.id} is ${existing.status} and can no longer be shipped.`,
+          });
+        }
+        return { id: updated.id, status: updated.status };
+      }),
   }),
 });
 

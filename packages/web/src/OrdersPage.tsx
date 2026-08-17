@@ -47,8 +47,20 @@ function OrderDetailDialog({
   onClose: () => void;
 }) {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const detailQuery = useQuery(trpc.order.byId.queryOptions({ id: orderId }));
   const order = detailQuery.data;
+
+  const markShipped = useMutation(
+    trpc.order.markShipped.mutationOptions({
+      onSuccess: async () => {
+        await Promise.all([
+          queryClient.invalidateQueries(trpc.order.byId.queryFilter({ id: orderId })),
+          queryClient.invalidateQueries(trpc.order.list.queryFilter()),
+        ]);
+      },
+    }),
+  );
 
   return (
     <div
@@ -135,7 +147,20 @@ function OrderDetailDialog({
           </>
         )}
 
+        {markShipped.isError && (
+          <p className="error">{readableError(markShipped.error.message)}</p>
+        )}
+
         <div className="actions">
+          {order?.status === "open" && (
+            <button
+              type="button"
+              onClick={() => markShipped.mutate({ id: orderId })}
+              disabled={markShipped.isPending}
+            >
+              {markShipped.isPending ? "Marking as shipped…" : "Mark as shipped"}
+            </button>
+          )}
           <button type="button" className="secondary" onClick={onClose} autoFocus>
             Close
           </button>
@@ -182,6 +207,19 @@ export default function OrdersPage() {
       onError: (err) => {
         setSuccess(null);
         setError(readableError(err.message));
+      },
+    }),
+  );
+
+  const markShipped = useMutation(
+    trpc.order.markShipped.mutationOptions({
+      onSuccess: async (order) => {
+        await Promise.all([
+          queryClient.invalidateQueries(trpc.order.list.queryFilter()),
+          queryClient.invalidateQueries(
+            trpc.order.byId.queryFilter({ id: order.id }),
+          ),
+        ]);
       },
     }),
   );
@@ -358,6 +396,12 @@ export default function OrdersPage() {
         {ordersQuery.isSuccess && orders.length === 0 && (
           <p className="muted">No orders yet. Place your first one above.</p>
         )}
+        {markShipped.isError && (
+          <p className="error">
+            Could not mark the order as shipped:{" "}
+            {readableError(markShipped.error.message)}
+          </p>
+        )}
         {orders.length > 0 && (
           <div className="table-wrap">
             <table>
@@ -398,16 +442,31 @@ export default function OrdersPage() {
                     </td>
                     <td className="num">{formatPrice(order.total)}</td>
                     <td>
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenOrderId(order.id);
-                        }}
-                      >
-                        Details
-                      </button>
+                      <span className="row-actions">
+                        {order.status === "open" && (
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markShipped.mutate({ id: order.id });
+                            }}
+                            disabled={markShipped.isPending}
+                          >
+                            Mark as shipped
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenOrderId(order.id);
+                          }}
+                        >
+                          Details
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 ))}
