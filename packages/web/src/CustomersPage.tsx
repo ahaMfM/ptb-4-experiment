@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import type { Customer } from "server/router";
+import StatusBadge from "./StatusBadge";
 import { useTRPC } from "./trpc";
-import { readableError } from "./utils";
+import { formatDate, formatDateTime, formatPrice, readableError } from "./utils";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -21,14 +22,6 @@ const emptyForm: CustomerFormValues = {
   email: "",
   customerSince: today(),
 };
-
-function formatDate(isoDate: string): string {
-  return new Date(`${isoDate}T00:00:00`).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function CustomerFields({
   form,
@@ -91,6 +84,116 @@ function CustomerFields({
           required
         />
       </label>
+    </div>
+  );
+}
+
+/**
+ * Everything about one customer at a glance: contact details plus every
+ * order they have placed and whether it is open, shipped or cancelled.
+ */
+function CustomerDetailDialog({
+  customer,
+  onClose,
+}: {
+  customer: Customer;
+  onClose: () => void;
+}) {
+  const trpc = useTRPC();
+  const ordersQuery = useQuery(
+    trpc.customer.orders.queryOptions({ customerId: customer.id }),
+  );
+  const orders = ordersQuery.data ?? [];
+
+  return (
+    <div
+      className="overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="modal modal-wide card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Customer ${customer.contactName}`}
+      >
+        <header className="order-header">
+          <h2>{customer.company}</h2>
+          <span className="muted">Customer #{customer.id}</span>
+        </header>
+
+        <div className="detail-grid">
+          <div>
+            <span className="detail-label">Contact person</span>
+            {customer.contactName}
+          </div>
+          <div>
+            <span className="detail-label">E-mail</span>
+            <a href={`mailto:${customer.email}`}>{customer.email}</a>
+          </div>
+          <div>
+            <span className="detail-label">Customer since</span>
+            {formatDate(customer.customerSince)}
+          </div>
+          <div>
+            <span className="detail-label">Address</span>
+            <span className="address">{customer.address}</span>
+          </div>
+        </div>
+
+        <h3>
+          Orders
+          {ordersQuery.isSuccess && <span className="count"> ({orders.length})</span>}
+        </h3>
+        {ordersQuery.isLoading && <p className="muted">Loading…</p>}
+        {ordersQuery.isError && (
+          <p className="error">
+            Could not load orders: {readableError(ordersQuery.error.message)}
+          </p>
+        )}
+        {ordersQuery.isSuccess && orders.length === 0 && (
+          <p className="muted">This customer has not placed any orders yet.</p>
+        )}
+        {orders.length > 0 && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Placed</th>
+                  <th>Contents</th>
+                  <th>Status</th>
+                  <th className="num">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order.id}>
+                    <td>#{order.id}</td>
+                    <td>{formatDateTime(order.createdAt)}</td>
+                    <td>
+                      {order.items
+                        .map((item) => `${item.quantity} × ${item.productName}`)
+                        .join(", ")}
+                    </td>
+                    <td>
+                      <StatusBadge status={order.status} />
+                    </td>
+                    <td className="num">{formatPrice(order.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="actions">
+          <button type="button" className="secondary" onClick={onClose} autoFocus>
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -223,6 +326,7 @@ export default function CustomersPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<Customer | null>(null);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [deleting, setDeleting] = useState<Customer | null>(null);
   const [search, setSearch] = useState("");
@@ -314,7 +418,7 @@ export default function CustomersPage() {
               </thead>
               <tbody>
                 {customers.map((c) => (
-                  <tr key={c.id} className="clickable" onClick={() => setEditing(c)}>
+                  <tr key={c.id} className="clickable" onClick={() => setViewing(c)}>
                     <td>{c.contactName}</td>
                     <td>{c.company}</td>
                     <td className="address">{c.address}</td>
@@ -326,6 +430,16 @@ export default function CustomersPage() {
                     <td>{formatDate(c.customerSince)}</td>
                     <td>
                       <span className="row-actions">
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewing(c);
+                          }}
+                        >
+                          Orders
+                        </button>
                         <button
                           type="button"
                           className="link-button"
@@ -355,6 +469,14 @@ export default function CustomersPage() {
           </div>
         )}
       </section>
+
+      {viewing && (
+        <CustomerDetailDialog
+          key={viewing.id}
+          customer={viewing}
+          onClose={() => setViewing(null)}
+        />
+      )}
 
       {editing && (
         <EditCustomerDialog

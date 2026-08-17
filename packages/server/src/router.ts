@@ -93,6 +93,65 @@ export const appRouter = t.router({
           )
           .orderBy(desc(customers.customerSince), desc(customers.id));
       }),
+    /**
+     * All orders a customer has placed, newest first, each with its
+     * current status (open / shipped / cancelled) and line items.
+     */
+    orders: t.procedure
+      .input(z.object({ customerId: z.number().int().positive() }))
+      .query(async ({ input }) => {
+        const [customer] = await db
+          .select({ id: customers.id })
+          .from(customers)
+          .where(eq(customers.id, input.customerId));
+        if (!customer) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Customer not found",
+          });
+        }
+
+        const orderRows = await db
+          .select({
+            id: orders.id,
+            createdAt: orders.createdAt,
+            status: orders.status,
+          })
+          .from(orders)
+          .where(eq(orders.customerId, input.customerId))
+          .orderBy(desc(orders.createdAt), desc(orders.id));
+        if (orderRows.length === 0) return [];
+
+        const itemRows = await db
+          .select({
+            orderId: orderItems.orderId,
+            quantity: orderItems.quantity,
+            unitPrice: orderItems.unitPrice,
+            productName: products.name,
+          })
+          .from(orderItems)
+          .innerJoin(products, eq(products.id, orderItems.productId))
+          .innerJoin(orders, eq(orders.id, orderItems.orderId))
+          .where(eq(orders.customerId, input.customerId))
+          .orderBy(orderItems.id);
+
+        return orderRows.map((order) => {
+          const items = itemRows
+            .filter((item) => item.orderId === order.id)
+            .map(({ orderId: _orderId, ...item }) => item);
+          const total = items.reduce(
+            (sum, item) => sum + Number(item.unitPrice) * item.quantity,
+            0,
+          );
+          return {
+            id: order.id,
+            createdAt: order.createdAt.toISOString(),
+            status: order.status,
+            items,
+            total: total.toFixed(2),
+          };
+        });
+      }),
     create: t.procedure.input(customerInput).mutation(async ({ input }) => {
       const [created] = await db.insert(customers).values(input).returning();
       return created;

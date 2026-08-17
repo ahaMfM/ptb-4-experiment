@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
+import StatusBadge from "./StatusBadge";
 import { useTRPC } from "./trpc";
-import { formatPrice, readableError } from "./utils";
+import { formatDate, formatDateTime, formatPrice, readableError } from "./utils";
 
 type OrderLine = {
   productId: string; // "" while none chosen
@@ -9,35 +10,6 @@ type OrderLine = {
 };
 
 const emptyLine: OrderLine = { productId: "", quantity: "1" };
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDate(isoDate: string): string {
-  return new Date(`${isoDate}T00:00:00`).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-/** "open" → "Open" — statuses are stored lowercase. */
-function formatStatus(status: string): string {
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span className={`status-badge status-${status}`}>{formatStatus(status)}</span>
-  );
-}
 
 function OrderDetailDialog({
   orderId,
