@@ -17,6 +17,9 @@ const client = new PGlite(dataDir);
 
 export const db = drizzle(client, { schema });
 
+/** The database handle inside `db.transaction(…)`, for helpers that take one. */
+export type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 /** Create the schema on startup (embedded database, no external migration step). */
 export async function initDb(): Promise<void> {
   await client.exec(`

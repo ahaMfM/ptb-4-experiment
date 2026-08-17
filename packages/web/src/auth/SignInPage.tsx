@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { useTRPC } from "./trpc";
-import { readableError } from "./utils";
+import { readableError } from "../lib/errors";
+import { useTRPC } from "../trpc";
 
 /**
  * Shown until someone has signed in. Everyone signs in as themselves, so it
@@ -22,14 +22,14 @@ export default function SignInPage() {
     }),
   );
 
-  const submit = (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     signIn.mutate({ username, password });
   };
 
   return (
     <div className="signin">
-      <form className="card signin-card" onSubmit={submit}>
+      <form className="card signin-card" onSubmit={handleSubmit}>
         <h1>Sign in</h1>
         <p className="muted">
           Please sign in as yourself, so it is clear who recorded what.

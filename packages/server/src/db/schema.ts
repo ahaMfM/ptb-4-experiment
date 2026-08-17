@@ -40,8 +40,6 @@ export const sessions = pgTable("sessions", {
     .defaultNow(),
 });
 
-export type Session = typeof sessions.$inferSelect;
-
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
   contactName: text("contact_name").notNull(),
@@ -73,8 +71,7 @@ export const products = pgTable("products", {
 export type Product = typeof products.$inferSelect;
 
 /** Lifecycle of an order. Newly placed orders start out as "open". */
-export const ORDER_STATUSES = ["open", "shipped", "completed", "cancelled"] as const;
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
+export type OrderStatus = "open" | "shipped" | "completed" | "cancelled";
 
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
@@ -92,8 +89,6 @@ export const orders = pgTable("orders", {
     .defaultNow(),
 });
 
-export type Order = typeof orders.$inferSelect;
-
 export const orderItems = pgTable("order_items", {
   id: serial("id").primaryKey(),
   orderId: integer("order_id")
@@ -106,8 +101,6 @@ export const orderItems = pgTable("order_items", {
   /** Price per unit at the time the order was placed (prices may change later). */
   unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
 });
-
-export type OrderItem = typeof orderItems.$inferSelect;
 
 /**
  * One invoice per shipped order, created automatically when the order is
@@ -128,5 +121,3 @@ export const invoices = pgTable("invoices", {
   /** Date the customer paid; null while the invoice is unpaid. */
   paidAt: date("paid_at"),
 });
-
-export type Invoice = typeof invoices.$inferSelect;

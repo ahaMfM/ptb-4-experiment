@@ -1,15 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { useTRPC } from "./trpc";
-import { formatDateTime, readableError } from "./utils";
+import QueryFeedback from "../components/QueryFeedback";
+import { readableError } from "../lib/errors";
+import { formatDateTime } from "../lib/format";
+import { useTRPC } from "../trpc";
 
-type TeamFormValues = {
+type TeamMemberFormValues = {
   name: string;
   username: string;
   password: string;
 };
 
-const emptyForm: TeamFormValues = { name: "", username: "", password: "" };
+const emptyForm: TeamMemberFormValues = { name: "", username: "", password: "" };
 
 /**
  * The people who can sign in. We set the people up ourselves: anyone who is
@@ -19,39 +21,37 @@ const emptyForm: TeamFormValues = { name: "", username: "", password: "" };
 export default function TeamPage() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<TeamFormValues>(emptyForm);
+  const [form, setForm] = useState<TeamMemberFormValues>(emptyForm);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
 
-  const usersQuery = useQuery(trpc.user.list.queryOptions());
+  const teamQuery = useQuery(trpc.user.list.queryOptions());
 
-  const create = useMutation(
+  const addTeamMember = useMutation(
     trpc.user.create.mutationOptions({
       onSuccess: (created) => {
         setForm(emptyForm);
         setLastAdded(created.name);
-        void queryClient.invalidateQueries({
-          queryKey: trpc.user.list.queryKey(),
-        });
+        void queryClient.invalidateQueries(trpc.user.list.queryFilter());
       },
     }),
   );
 
   const set =
-    (field: keyof TeamFormValues) =>
+    (field: keyof TeamMemberFormValues) =>
     (e: { target: { value: string } }) =>
-      setForm((f) => ({ ...f, [field]: e.target.value }));
+      setForm((current) => ({ ...current, [field]: e.target.value }));
 
-  const submit = (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setLastAdded(null);
-    create.mutate(form);
+    addTeamMember.mutate(form);
   };
 
   return (
     <>
       <section className="card">
         <h2>Add a person</h2>
-        <form onSubmit={submit}>
+        <form onSubmit={handleSubmit}>
           <div className="grid">
             <label>
               Name
@@ -87,9 +87,9 @@ export default function TeamPage() {
             Tell the person their username and password directly — there is no
             password recovery.
           </p>
-          {create.isError && (
+          {addTeamMember.isError && (
             <p className="error" role="alert">
-              {readableError(create.error.message)}
+              {readableError(addTeamMember.error.message)}
             </p>
           )}
           {lastAdded && (
@@ -97,8 +97,8 @@ export default function TeamPage() {
               {lastAdded} can now sign in.
             </p>
           )}
-          <button type="submit" disabled={create.isPending}>
-            {create.isPending ? "Adding…" : "Add person"}
+          <button type="submit" disabled={addTeamMember.isPending}>
+            {addTeamMember.isPending ? "Adding…" : "Add person"}
           </button>
         </form>
       </section>
@@ -106,15 +106,12 @@ export default function TeamPage() {
       <section className="card">
         <h2>
           Team{" "}
-          {usersQuery.isSuccess && (
-            <span className="count">({usersQuery.data.length})</span>
+          {teamQuery.isSuccess && (
+            <span className="count">({teamQuery.data.length})</span>
           )}
         </h2>
-        {usersQuery.isPending && <p className="muted">Loading…</p>}
-        {usersQuery.isError && (
-          <p className="error">{readableError(usersQuery.error.message)}</p>
-        )}
-        {usersQuery.isSuccess && (
+        <QueryFeedback query={teamQuery} />
+        {teamQuery.isSuccess && (
           <div className="table-wrap">
             <table>
               <thead>
@@ -125,11 +122,11 @@ export default function TeamPage() {
                 </tr>
               </thead>
               <tbody>
-                {usersQuery.data.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.name}</td>
-                    <td>{user.username}</td>
-                    <td>{formatDateTime(user.createdAt)}</td>
+                {teamQuery.data.map((member) => (
+                  <tr key={member.id}>
+                    <td>{member.name}</td>
+                    <td>{member.username}</td>
+                    <td>{formatDateTime(member.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>

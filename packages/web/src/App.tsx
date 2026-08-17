@@ -1,15 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
 import type { PublicUser } from "server/router";
-import CustomersPage from "./CustomersPage";
-import InvoicesPage from "./InvoicesPage";
-import OrdersPage from "./OrdersPage";
-import ProductsPage from "./ProductsPage";
-import SignInPage from "./SignInPage";
-import TeamPage from "./TeamPage";
+import SignInPage from "./auth/SignInPage";
+import CustomersPage from "./customers/CustomersPage";
+import InvoicesPage from "./invoices/InvoicesPage";
+import OrdersPage from "./orders/OrdersPage";
+import ProductsPage from "./products/ProductsPage";
+import TeamPage from "./team/TeamPage";
 import { useTRPC } from "./trpc";
 
-type Page = "products" | "customers" | "orders" | "invoices" | "team";
+/** The screens of the back office, in the order the tabs show them. */
+const PAGES = [
+  { id: "products", label: "Products", Screen: ProductsPage },
+  { id: "customers", label: "Customers", Screen: CustomersPage },
+  { id: "orders", label: "Orders", Screen: OrdersPage },
+  { id: "invoices", label: "Invoices", Screen: InvoicesPage },
+  { id: "team", label: "Team", Screen: TeamPage },
+] as const satisfies readonly {
+  id: string;
+  label: string;
+  Screen: ComponentType;
+}[];
+
+type PageId = (typeof PAGES)[number]["id"];
 
 /**
  * Everyone signs in as themselves before using the application, so the app
@@ -65,6 +78,14 @@ export default function App() {
   );
 }
 
+/** How many invoices are waiting for payment, in words. */
+function unpaidSummary(unpaidCount: number): string {
+  if (unpaidCount === 0) return "No unpaid invoices — everything has been paid.";
+  if (unpaidCount === 1) return "1 invoice is currently unpaid.";
+  return `${unpaidCount} invoices are currently unpaid.`;
+}
+
+/** The application itself: the tab bar and whichever screen is chosen. */
 function BackOffice({
   user,
   onSignOut,
@@ -75,10 +96,13 @@ function BackOffice({
   signingOut: boolean;
 }) {
   const trpc = useTRPC();
-  const [page, setPage] = useState<Page>("products");
+  const [page, setPage] = useState<PageId>("products");
 
   const unpaidQuery = useQuery(trpc.invoice.unpaidCount.queryOptions());
   const unpaidCount = unpaidQuery.data ?? 0;
+  const showUnpaid = unpaidQuery.isSuccess;
+
+  const { Screen } = PAGES.find((candidate) => candidate.id === page)!;
 
   return (
     <main>
@@ -97,52 +121,28 @@ function BackOffice({
       </div>
 
       <nav className="tabs" aria-label="Main navigation">
-        <button
-          type="button"
-          className={page === "products" ? "tab active" : "tab"}
-          onClick={() => setPage("products")}
-        >
-          Products
-        </button>
-        <button
-          type="button"
-          className={page === "customers" ? "tab active" : "tab"}
-          onClick={() => setPage("customers")}
-        >
-          Customers
-        </button>
-        <button
-          type="button"
-          className={page === "orders" ? "tab active" : "tab"}
-          onClick={() => setPage("orders")}
-        >
-          Orders
-        </button>
-        <button
-          type="button"
-          className={page === "invoices" ? "tab active" : "tab"}
-          onClick={() => setPage("invoices")}
-        >
-          Invoices
-          {unpaidQuery.isSuccess && unpaidCount > 0 && (
-            <span
-              className="tab-badge"
-              aria-label={`${unpaidCount} unpaid ${unpaidCount === 1 ? "invoice" : "invoices"}`}
-            >
-              {unpaidCount}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          className={page === "team" ? "tab active" : "tab"}
-          onClick={() => setPage("team")}
-        >
-          Team
-        </button>
+        {PAGES.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            className={page === id ? "tab active" : "tab"}
+            onClick={() => setPage(id)}
+          >
+            {label}
+            {id === "invoices" && showUnpaid && unpaidCount > 0 && (
+              <span
+                className="tab-badge"
+                aria-label={`${unpaidCount} unpaid ${unpaidCount === 1 ? "invoice" : "invoices"}`}
+              >
+                {unpaidCount}
+              </span>
+            )}
+          </button>
+        ))}
       </nav>
 
-      {page === "products" && unpaidQuery.isSuccess && (
+      {/* The start screen leads with the open receivables. */}
+      {page === "products" && showUnpaid && (
         <button
           type="button"
           className={
@@ -150,20 +150,12 @@ function BackOffice({
           }
           onClick={() => setPage("invoices")}
         >
-          {unpaidCount === 0
-            ? "No unpaid invoices — everything has been paid."
-            : unpaidCount === 1
-              ? "1 invoice is currently unpaid."
-              : `${unpaidCount} invoices are currently unpaid.`}
+          {unpaidSummary(unpaidCount)}
           <span className="unpaid-banner-link">View invoices</span>
         </button>
       )}
 
-      {page === "products" && <ProductsPage />}
-      {page === "customers" && <CustomersPage />}
-      {page === "orders" && <OrdersPage />}
-      {page === "invoices" && <InvoicesPage />}
-      {page === "team" && <TeamPage />}
+      <Screen />
     </main>
   );
 }

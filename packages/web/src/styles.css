@@ -8,12 +8,27 @@
   --bg: #f4f5f7;
   --card: #ffffff;
   --text: #1c2733;
+  --on-accent: #ffffff;
   --muted: #64748b;
   --border: #d9dee5;
+  --row-hover: #f0f4fa;
   --accent: #1f6feb;
   --accent-hover: #1a5fd0;
   --error: #b3261e;
   --danger-hover: #921e17;
+
+  /* Badges and banners speak in four colors: neutral information (blue),
+     something settled (green), something still pending (amber) and
+     something that went wrong or is unavailable (red). */
+  --info-bg: #e3edfb;
+  --success-bg: #e6f4ea;
+  --success-text: #1e7a3c;
+  --pending-bg: #fdf3e0;
+  --pending-bg-hover: #fbecd0;
+  --pending-border: #f0d9a8;
+  --pending-border-hover: #e3c27f;
+  --pending-text: #915f13;
+  --error-bg: #fdecea;
 }
 
 body {
@@ -86,7 +101,7 @@ select {
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--card);
   color: var(--text);
 }
 
@@ -109,7 +124,7 @@ button {
   border: none;
   border-radius: 6px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
 }
 
@@ -169,7 +184,7 @@ tr.clickable {
 }
 
 tr.clickable:hover td {
-  background: #f0f4fa;
+  background: var(--row-hover);
 }
 
 .link-button {
@@ -313,15 +328,15 @@ button.tab.active {
   min-width: 1.35rem;
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
-  background: #fdf3e0;
-  color: #915f13;
+  background: var(--pending-bg);
+  color: var(--pending-text);
   font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
 }
 
 button.tab.active .tab-badge {
-  background: #e3edfb;
+  background: var(--info-bg);
   color: var(--accent);
 }
 
@@ -349,14 +364,14 @@ button.tab.active .tab-badge {
 }
 
 .unpaid-banner.has-unpaid {
-  border-color: #f0d9a8;
-  background: #fdf3e0;
-  color: #915f13;
+  border-color: var(--pending-border);
+  background: var(--pending-bg);
+  color: var(--pending-text);
 }
 
 .unpaid-banner.has-unpaid:hover:not(:disabled) {
-  background: #fbecd0;
-  border-color: #e3c27f;
+  background: var(--pending-bg-hover);
+  border-color: var(--pending-border-hover);
 }
 
 .unpaid-banner-link {
@@ -386,7 +401,7 @@ button.tab.active .tab-badge {
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  background: #fff;
+  background: var(--card);
 }
 
 .product-image {
@@ -441,12 +456,12 @@ button.tab.active .tab-badge {
   font-weight: 600;
   padding: 0.15rem 0.6rem;
   border-radius: 999px;
-  background: #e6f4ea;
-  color: #1e7a3c;
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 
 .stock-badge.out-of-stock {
-  background: #fdecea;
+  background: var(--error-bg);
   color: var(--error);
 }
 
@@ -455,7 +470,7 @@ input[type="file"] {
 }
 
 .success {
-  color: #1e7a3c;
+  color: var(--success-text);
   font-size: 0.875rem;
 }
 
@@ -537,33 +552,33 @@ tr.order-total-row td {
 }
 
 .status-badge.status-open {
-  background: #e3edfb;
+  background: var(--info-bg);
   color: var(--accent);
 }
 
 .status-badge.status-shipped {
-  background: #fdf3e0;
-  color: #915f13;
+  background: var(--pending-bg);
+  color: var(--pending-text);
 }
 
 .status-badge.status-completed {
-  background: #e6f4ea;
-  color: #1e7a3c;
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 
 .status-badge.status-cancelled {
-  background: #fdecea;
+  background: var(--error-bg);
   color: var(--error);
 }
 
 .status-badge.status-paid {
-  background: #e6f4ea;
-  color: #1e7a3c;
+  background: var(--success-bg);
+  color: var(--success-text);
 }
 
 .status-badge.status-unpaid {
-  background: #fdf3e0;
-  color: #915f13;
+  background: var(--pending-bg);
+  color: var(--pending-text);
 }
 
 .invoice-toolbar {
