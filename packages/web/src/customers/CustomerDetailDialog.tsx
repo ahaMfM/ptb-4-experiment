@@ -57,6 +57,10 @@ export default function CustomerDetailDialog({
           <span className="address">{customer.address}</span>
         </div>
         <div>
+          <span className="detail-label">VAT number</span>
+          {customer.vatNumber || <span className="muted">—</span>}
+        </div>
+        <div>
           <span className="detail-label">Recorded by</span>
           {customer.recordedBy ? (
             <>

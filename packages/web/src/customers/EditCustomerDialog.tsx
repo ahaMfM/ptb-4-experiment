@@ -22,6 +22,7 @@ export default function EditCustomerDialog({
     company: customer.company,
     address: customer.address,
     email: customer.email,
+    vatNumber: customer.vatNumber ?? "",
     customerSince: customer.customerSince,
   });
   const [error, setError] = useState<string | null>(null);

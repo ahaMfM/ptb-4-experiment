@@ -141,6 +141,7 @@ export default function CustomersPage() {
                   <th>Company</th>
                   <th>Address</th>
                   <th>E-mail</th>
+                  <th>VAT number</th>
                   <th>Customer since</th>
                   <th>Recorded by</th>
                   <th>
@@ -166,6 +167,7 @@ export default function CustomersPage() {
                         {customer.email}
                       </a>
                     </td>
+                    <td>{customer.vatNumber || <span className="muted">—</span>}</td>
                     <td>{formatDate(customer.customerSince)}</td>
                     <td>
                       {customer.recordedBy ? (

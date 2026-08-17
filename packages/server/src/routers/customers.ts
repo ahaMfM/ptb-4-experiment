@@ -29,6 +29,8 @@ const customerInput = z.object({
   company: z.string().trim().min(1, "Company is required"),
   address: z.string().trim().min(1, "Address is required"),
   email: z.email("A valid e-mail address is required"),
+  // Not every customer gives us a VAT number.
+  vatNumber: z.string().trim().optional(),
   customerSince: isoDateString("Date must be YYYY-MM-DD"),
 });
 
@@ -57,6 +59,7 @@ export const customerRouter = router({
           company: customers.company,
           address: customers.address,
           email: customers.email,
+          vatNumber: customers.vatNumber,
           customerSince: customers.customerSince,
           createdAt: customers.createdAt,
           // Who recorded the customer; null for old entries.

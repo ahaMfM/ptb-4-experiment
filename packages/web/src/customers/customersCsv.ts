@@ -13,6 +13,7 @@ export function customersToCsv(customers: CustomerRecord[]): string {
       "Company",
       "Address",
       "E-mail",
+      "VAT number",
       "Customer since",
       "Recorded by",
       "Recorded at",
@@ -23,6 +24,7 @@ export function customersToCsv(customers: CustomerRecord[]): string {
       customer.company,
       customer.address,
       customer.email,
+      customer.vatNumber ?? "",
       customer.customerSince,
       // Empty for entries from before we tracked who recorded what.
       customer.recordedBy ?? "",

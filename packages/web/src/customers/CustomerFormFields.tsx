@@ -6,6 +6,7 @@ export type CustomerFormValues = {
   company: string;
   address: string;
   email: string;
+  vatNumber: string;
   customerSince: string;
 };
 
@@ -16,6 +17,7 @@ export function emptyCustomerForm(): CustomerFormValues {
     company: "",
     address: "",
     email: "",
+    vatNumber: "",
     customerSince: todayIso(),
   };
 }
@@ -56,6 +58,14 @@ export default function CustomerFormFields({
           onChange={(e) => onChange({ email: e.target.value })}
           placeholder="jane.doe@acme.example"
           required
+        />
+      </label>
+      <label>
+        VAT number
+        <input
+          value={form.vatNumber}
+          onChange={(e) => onChange({ vatNumber: e.target.value })}
+          placeholder="Optional"
         />
       </label>
       <label>
