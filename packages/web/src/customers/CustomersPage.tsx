@@ -34,6 +34,10 @@ export default function CustomersPage() {
   });
   const customers = customersQuery.data ?? [];
 
+  // Always the full count, regardless of any active search filter.
+  const totalQuery = useQuery(trpc.customer.list.queryOptions(undefined));
+  const total = totalQuery.data?.length;
+
   const createCustomer = useMutation(
     trpc.customer.create.mutationOptions({
       onSuccess: async () => {
@@ -97,8 +101,14 @@ export default function CustomersPage() {
         <div className="list-header">
           <h2>
             All customers
-            {customersQuery.isSuccess && (
-              <span className="count"> ({customers.length})</span>
+            {total !== undefined && (
+              <span className="count"> ({total} total)</span>
+            )}
+            {trimmedSearch && customersQuery.isSuccess && (
+              <span className="count">
+                {" "}
+                · {customers.length} matching
+              </span>
             )}
           </h2>
           <input
